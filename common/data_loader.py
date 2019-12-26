@@ -38,7 +38,8 @@ UPDATED = 'updated'
 RELATIONSHIPS = 'relationships'
 VISITS_CREATED = 'visits_created'
 PROVIDED_PARENTS = 'provided_parents'
-
+REL_PROP_DELIMITER = '*'
+RELATIONSHIP_PROPS = 'relationship_properties'
 
 class DataLoader:
     def __init__(self, driver, schema):
@@ -147,7 +148,14 @@ class DataLoader:
         # Cleanup values for Boolean, Int and Float types
         if node_type:
             for key, value in obj.items():
-                key_type = self.schema.get_prop_type(node_type, key)
+                search_node_type = node_type
+                search_key = key
+                if is_parent_pointer(key):
+                    search_node_type, search_key = key.split('.')
+                elif DataLoader.is_relationship_property(key):
+                    search_node_type, search_key = key.split(REL_PROP_DELIMITER)
+
+                key_type = self.schema.get_prop_type(search_node_type, search_key)
                 if key_type == 'Boolean':
                     cleaned_value = None
                     if isinstance(value, str):
@@ -321,6 +329,8 @@ class DataLoader:
                 continue
             elif is_parent_pointer(key):
                 continue
+            elif DataLoader.is_relationship_property(key):
+                continue
 
             prop_stmts.append('{0}: {{{0}}}'.format(key))
 
@@ -339,6 +349,8 @@ class DataLoader:
             elif key == id_field:
                 continue
             elif is_parent_pointer(key):
+                continue
+            elif DataLoader.is_relationship_property(key):
                 continue
 
             prop_stmts.append('n.{0} = {{{0}}}'.format(key))
@@ -461,6 +473,7 @@ class DataLoader:
         relationships = []
         visits_created = 0
         provided_parents = 0
+        relationship_properties = {}
         for key, value in obj.items():
             if is_parent_pointer(key):
                 provided_parents += 1
@@ -490,7 +503,16 @@ class DataLoader:
                     else:
                         relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,
                                           RELATIONSHIP_TYPE: relationship_name, MULTIPLIER: multiplier})
-        return {RELATIONSHIPS: relationships, VISITS_CREATED: visits_created, PROVIDED_PARENTS: provided_parents}
+            elif self.is_relationship_property(key):
+                parent, prop_name = key.split(REL_PROP_DELIMITER)
+                if parent not in relationship_properties:
+                    relationship_properties[parent] = {}
+                relationship_properties[parent][prop_name] = value
+        return {RELATIONSHIPS: relationships, VISITS_CREATED: visits_created, PROVIDED_PARENTS: provided_parents, RELATIONSHIP_PROPS: relationship_properties}
+
+    @staticmethod
+    def is_relationship_property(key):
+        return re.match(r'^.+\{}.+$'.format(REL_PROP_DELIMITER), key)
 
     def parent_already_has_child(self, session, node_type, node, relationship_name, parent_type, parent_id_field, parent_id):
         statement = 'MATCH (n:{})-[r:{}]->(m:{} {{ {}: {{parent_id}} }}) return n'.format(node_type, relationship_name, parent_type, parent_id_field)
@@ -566,6 +588,7 @@ class DataLoader:
                 relationships = results[RELATIONSHIPS]
                 visits_created += results[VISITS_CREATED]
                 provided_parents = results[PROVIDED_PARENTS]
+                relationship_props = results[RELATIONSHIP_PROPS]
                 if provided_parents > 0:
                     if len(relationships) == 0:
                         raise Exception('Line: {}: No parents found, abort loading!'.format(line_num))
@@ -575,6 +598,7 @@ class DataLoader:
                         multiplier = relationship[MULTIPLIER]
                         parent_node = relationship[PARENT_TYPE]
                         parent_id_field = relationship[PARENT_ID_FIELD]
+                        properties = relationship_props.get(parent_node, {})
                         if multiplier in [DEFAULT_MULTIPLIER, ONE_TO_ONE]:
                             if loading_mode == UPSERT_MODE:
                                 self.remove_old_relationship(session, node_type, obj, relationship)
@@ -585,13 +609,16 @@ class DataLoader:
                                 raise Exception('Wrong loading_mode: {}'.format(loading_mode))
                         else:
                             self.log.info('Multiplier: {}, no action needed!'.format(multiplier))
-                        statement = 'MATCH (m:{0} {{ {1}: {{{1}}} }}) '.format(parent_node, parent_id_field)
-                        statement += 'MATCH (n:{0} {{ {1}: {{{1}}} }}) '.format(node_type, self.schema.get_id_field(obj))
-                        statement += 'MERGE (n)-[r:{}]->(m)'.format(relationship_name)
+                        prop_statement = ', '.join(self.get_relationship_prop_statements(properties))
+                        statement = 'MATCH (m:{0} {{ {1}: {{{1}}} }})'.format(parent_node, parent_id_field)
+                        statement += ' MATCH (n:{0} {{ {1}: {{{1}}} }})'.format(node_type, self.schema.get_id_field(obj))
+                        statement += ' MERGE (n)-[r:{}]->(m)'.format(relationship_name)
                         statement += ' ON CREATE SET r.{} = datetime()'.format(CREATED)
+                        statement += ', {}'.format(prop_statement) if prop_statement else ''
                         statement += ' ON MATCH SET r.{} = datetime()'.format(UPDATED)
+                        statement += ', {}'.format(prop_statement) if prop_statement else ''
 
-                        result = session.run(statement, obj)
+                        result = session.run(statement, {**obj, **properties})
                         count = result.summary().counters.relationships_created
                         self.relationships_created += count
                         relationship_pattern = '(:{})->[:{}]->(:{})'.format(node_type, relationship_name, parent_node)
@@ -604,6 +631,14 @@ class DataLoader:
                 self.log.info('{} (:{}) node(s) loaded'.format(visits_created, VISIT_NODE))
 
         return True
+
+    @staticmethod
+    def get_relationship_prop_statements(props):
+        prop_stmts = []
+
+        for key in props:
+            prop_stmts.append('r.{0} = {{{0}}}'.format(key))
+        return prop_stmts
 
     def create_visit(self, session, line_num, node_type, node_id, src):
         if node_type != VISIT_NODE:

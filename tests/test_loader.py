@@ -115,6 +115,18 @@ class TestLoader(unittest.TestCase):
         obj = self.loader.prepare_node({'type': 'file', 'file_size': ' 15 '})
         self.assertEqual(obj['file_size'], 15)
 
+    def test_relationship_properties(self):
+        self.assertFalse(self.loader.is_relationship_property('abc'))
+        self.assertFalse(self.loader.is_relationship_property('abc*'))
+        self.assertFalse(self.loader.is_relationship_property('*abc'))
+        self.assertFalse(self.loader.is_relationship_property('def.abc'))
+        self.assertTrue(self.loader.is_relationship_property('def*abc'))
+
+    def test_load_with_relationship_props(self):
+        self.loader.load(['data/COTC007B-case-with-rel-props.txt'], True, False, 'upsert', False, 10)
+        load_result = self.loader.load(self.file_list, True, False, 'upsert', False, 1)
+        self.assertIsInstance(load_result, dict, msg='Load data failed!')
+
 
 if __name__ == '__main__':
     unittest.main()
