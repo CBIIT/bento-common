@@ -504,10 +504,10 @@ class DataLoader:
                         relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,
                                           RELATIONSHIP_TYPE: relationship_name, MULTIPLIER: multiplier})
             elif self.is_relationship_property(key):
-                parent, prop_name = key.split(REL_PROP_DELIMITER)
-                if parent not in relationship_properties:
-                    relationship_properties[parent] = {}
-                relationship_properties[parent][prop_name] = value
+                rel_name, prop_name = key.split(REL_PROP_DELIMITER)
+                if rel_name not in relationship_properties:
+                    relationship_properties[rel_name] = {}
+                relationship_properties[rel_name][prop_name] = value
         return {RELATIONSHIPS: relationships, VISITS_CREATED: visits_created, PROVIDED_PARENTS: provided_parents, RELATIONSHIP_PROPS: relationship_properties}
 
     @staticmethod
@@ -598,7 +598,7 @@ class DataLoader:
                         multiplier = relationship[MULTIPLIER]
                         parent_node = relationship[PARENT_TYPE]
                         parent_id_field = relationship[PARENT_ID_FIELD]
-                        properties = relationship_props.get(parent_node, {})
+                        properties = relationship_props.get(relationship_name, {})
                         if multiplier in [DEFAULT_MULTIPLIER, ONE_TO_ONE]:
                             if loading_mode == UPSERT_MODE:
                                 self.remove_old_relationship(session, node_type, obj, relationship)

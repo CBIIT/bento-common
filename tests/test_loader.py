@@ -123,7 +123,9 @@ class TestLoader(unittest.TestCase):
         self.assertTrue(self.loader.is_relationship_property('def*abc'))
 
     def test_load_with_relationship_props(self):
-        self.loader.load(['data/COTC007B-case-with-rel-props.txt'], True, False, 'upsert', False, 10)
+        schema = ICDC_Schema(['data/test-icdc-model.yml', 'data/test-icdc-model-props.yml'])
+        loader = DataLoader(self.driver, schema)
+        loader.load(['data/COTC007B-case-with-rel-props.txt'], True, False, 'upsert', False, 10)
         load_result = self.loader.load(self.file_list, True, False, 'upsert', False, 1)
         self.assertIsInstance(load_result, dict, msg='Load data failed!')
 

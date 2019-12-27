@@ -86,6 +86,7 @@ class ICDC_Schema:
             for key, value in self.org_schema[RELATIONSHIPS].items():
                 # Assume all keys start with '_' are not regular nodes
                 if not key.startswith('_'):
+                    self.process_node(key, value)
                     self.num_relationship += self.process_edges(key, value)
 
 
@@ -103,7 +104,8 @@ class ICDC_Schema:
                 if self.is_required_prop(prop):
                     required.add(prop)
 
-        self.nodes[name] = { PROPERTIES: props, REQUIRED: required }
+        if props:
+            self.nodes[name] = { PROPERTIES: props, REQUIRED: required }
 
     def process_edges(self, name, desc):
         count = 0
