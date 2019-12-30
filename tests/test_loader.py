@@ -120,7 +120,7 @@ class TestLoader(unittest.TestCase):
         self.assertFalse(self.loader.is_relationship_property('abc*'))
         self.assertFalse(self.loader.is_relationship_property('*abc'))
         self.assertFalse(self.loader.is_relationship_property('def.abc'))
-        self.assertTrue(self.loader.is_relationship_property('def*abc'))
+        self.assertTrue(self.loader.is_relationship_property('def$abc'))
 
     def test_load_with_relationship_props(self):
         schema = ICDC_Schema(['data/test-icdc-model.yml', 'data/test-icdc-model-props.yml'])

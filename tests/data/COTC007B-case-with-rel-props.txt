@@ -1,4 +1,4 @@
-type	cohort.cohort_description	case_id	patient_id	patient_first_name	study.clinical_study_designation	member_of*rel_prop1	member_of*rel_prop2
+type	cohort.cohort_description	case_id	patient_id	patient_first_name	study.clinical_study_designation	member_of$rel_prop1	member_of$rel_prop2
 case	NSC 725776; 3mg/m2/day	COTC007B0201	201	Natasha	COTC007B	1	2
 case	NSC 725776; 3mg/m2/day	COTC007B0501	501	Simba	COTC007B	1	2
 case	NSC 743400; 8mg/m2/day	COTC007B0901	901	Sally	COTC007B	1	2

@@ -13,7 +13,7 @@ from .icdc_schema import ICDC_Schema, get_uuid_for_node
 from .utils import DATE_FORMAT, get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
     is_parent_pointer, RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
     NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED
-from .config import PROPS
+from .config import PROPS, REL_PROP_DELIMITER
 
 NODE_TYPE = 'type'
 VISIT_NODE = 'visit'
@@ -38,7 +38,6 @@ UPDATED = 'updated'
 RELATIONSHIPS = 'relationships'
 VISITS_CREATED = 'visits_created'
 PROVIDED_PARENTS = 'provided_parents'
-REL_PROP_DELIMITER = '*'
 RELATIONSHIP_PROPS = 'relationship_properties'
 
 class DataLoader:

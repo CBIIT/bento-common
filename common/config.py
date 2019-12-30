@@ -29,6 +29,8 @@ BACKUP_FOLDER = config.get('main', 'backup_folder')
 INDEXD_GUID_PREFIX = config.get('indexd', 'GUID_prefix')
 INDEXD_MANIFEST_EXT = config.get('indexd', 'ext')
 
+REL_PROP_DELIMITER = config.get('data', 'rel_prop_delimiter')
+
 if not INDEXD_MANIFEST_EXT.startswith('.'):
     INDEXD_MANIFEST_EXT = '.' + INDEXD_MANIFEST_EXT
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
