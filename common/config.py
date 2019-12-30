@@ -49,7 +49,7 @@ if property_file and os.path.isfile(property_file):
             sys.exit(1)
 else:
     util_log.error(
-        'Can\'t find property file! Get a copy of config/prop.sample.yml to /config/props.yml or specify property file in Environment variable {}'.format(
+        'Can\'t find property file! Get a copy of config/props.sample.yml to /config/props.yml or specify property file in Environment variable {}'.format(
             PROP_FILE_ENV_VAR))
     sys.exit(1)
 
