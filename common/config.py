@@ -15,7 +15,7 @@ config_file = os.environ.get(CONFIG_FILE_ENV_VAR, 'config/config.ini')
 if config_file and os.path.isfile(config_file):
     config.read(config_file)
 else:
-    util_log.error('Can\'t find configuration file! Make a copy of config.sample.ini to config.ini'
+    util_log.error('Can\'t find configuration file! Make a copy of config/config.sample.ini to /config/config.ini'
                    + ' or specify config file in Environment variable {}'.format(CONFIG_FILE_ENV_VAR))
     sys.exit(1)
 
@@ -49,7 +49,7 @@ if property_file and os.path.isfile(property_file):
             sys.exit(1)
 else:
     util_log.error(
-        'Can\'t find property file! Get a copy of prop.yml or specify property file in Environment variable {}'.format(
+        'Can\'t find property file! Get a copy of config/prop.sample.yml to /config/props.yml or specify property file in Environment variable {}'.format(
             PROP_FILE_ENV_VAR))
     sys.exit(1)
 
