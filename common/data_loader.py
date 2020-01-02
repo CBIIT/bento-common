@@ -607,7 +607,7 @@ class DataLoader:
                             else:
                                 raise Exception('Wrong loading_mode: {}'.format(loading_mode))
                         else:
-                            self.log.info('Multiplier: {}, no action needed!'.format(multiplier))
+                            self.log.debug('Multiplier: {}, no action needed!'.format(multiplier))
                         prop_statement = ', '.join(self.get_relationship_prop_statements(properties))
                         statement = 'MATCH (m:{0} {{ {1}: {{{1}}} }})'.format(parent_node, parent_id_field)
                         statement += ' MATCH (n:{0} {{ {1}: {{{1}}} }})'.format(node_type, self.schema.get_id_field(obj))
