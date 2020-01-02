@@ -23,6 +23,7 @@ LABEL_NEXT = 'next'
 NEXT_RELATIONSHIP = 'next'
 UNITS = 'units'
 REQUIRED = 'Req'
+PRIVATE = 'Private'
 NODE_TYPE = 'type'
 ENUM = 'enum'
 DEFAULT_VALUE = 'default_value'
@@ -94,6 +95,7 @@ class ICDC_Schema:
         # Gather properties
         props = {}
         required = set()
+        private = set()
         if desc[PROPERTIES]:
             for prop in desc[PROPERTIES]:
                 prop_type = self.get_type(prop)
@@ -103,9 +105,11 @@ class ICDC_Schema:
                     props.update(value_unit_props)
                 if self.is_required_prop(prop):
                     required.add(prop)
+                if self.is_private_prop(prop):
+                    private.add(prop)
 
         if props:
-            self.nodes[name] = { PROPERTIES: props, REQUIRED: required }
+            self.nodes[name] = { PROPERTIES: props, REQUIRED: required, PRIVATE: private}
 
     def process_edges(self, name, desc):
         count = 0
@@ -173,6 +177,13 @@ class ICDC_Schema:
         if name in self.org_schema[PROP_DEFINITIONS]:
             prop = self.org_schema[PROP_DEFINITIONS][name]
             result = prop.get(REQUIRED, False)
+        return result
+
+    def is_private_prop(self, name):
+        result = False
+        if name in self.org_schema[PROP_DEFINITIONS]:
+            prop = self.org_schema[PROP_DEFINITIONS][name]
+            result = prop.get(PRIVATE, False)
         return result
 
     def get_prop_type(self, node_type, prop):
@@ -417,6 +428,17 @@ class ICDC_Schema:
     def get_props_for_node(self, node_name):
         if node_name in self.nodes:
             return self.nodes[node_name][PROPERTIES]
+        else:
+            return None
+
+    # Get all properties of a node (name)
+    def get_public_props_for_node(self, node_name):
+        if node_name in self.nodes:
+            props = self.nodes[node_name][PROPERTIES].copy()
+            for private_prop in self.nodes[node_name].get(PRIVATE, []):
+                del(props[private_prop])
+                self.log.info('Delete private property: "{}"'.format(private_prop))
+            return props
         else:
             return None
 
