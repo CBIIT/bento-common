@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import re
@@ -54,6 +55,22 @@ def send_slack_message(url, messaage, log):
                 log.error(result.content)
     else:
         log.error('Slack URL not set in configuration file!')
+
+def get_hash(file_name, hash_func):
+    with open(file_name, 'rb') as afile:
+        buf = afile.read(BLOCK_SIZE)
+        while len(buf) > 0:
+            hash_func.update(buf)
+            buf = afile.read(BLOCK_SIZE)
+    return hash_func.hexdigest()
+
+def get_md5(file_name):
+    hash_func = hashlib.md5()
+    return get_hash(file_name, hash_func)
+
+def get_sha512(file_name):
+    hash_func = hashlib.sha512()
+    return get_hash(file_name, hash_func)
 
 
 NODES_CREATED = 'nodes_created'
