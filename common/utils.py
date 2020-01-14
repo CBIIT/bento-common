@@ -2,6 +2,7 @@ import logging
 import os
 import re
 from urllib.parse import urlparse
+import uuid
 
 from requests import post
 
@@ -54,6 +55,21 @@ def send_slack_message(url, messaage, log):
                 log.error(result.content)
     else:
         log.error('Slack URL not set in configuration file!')
+
+
+def get_uuid(domain, node_type, signature):
+    """Generate V5 UUID for a node in domain
+    Arguments:
+        domain - a string represents a domain, e.g., caninecommons.cancer.gov
+        node_type - a string represents type of a node, e.g. case, study, file etc.
+        signature - a string that can uniquely identify a node within it's type, e.g. case_id, clinical_study_designation etc.
+                    or a long string with all properties and values concat together if no id available
+
+    """
+    base_uuid = uuid.uuid5(uuid.NAMESPACE_URL, domain)
+    type_uuid = uuid.uuid5(base_uuid, node_type)
+    node_uuid = uuid.uuid5(type_uuid, signature)
+    return str(node_uuid)
 
 
 NODES_CREATED = 'nodes_created'

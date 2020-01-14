@@ -2,11 +2,10 @@ from datetime import datetime
 import os
 import re
 import sys
-import uuid
 
 import yaml
 
-from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, is_parent_pointer, DATE_FORMAT
+from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, is_parent_pointer, DATE_FORMAT, get_uuid
 from .config import DOMAIN, PROPS
 
 NODES = 'Nodes'
@@ -38,10 +37,7 @@ def get_uuid_for_node(node_type, signature):
                     or a long string with all properties and values concat together if no id available
 
     """
-    icdc_base_uuid = uuid.uuid5(uuid.NAMESPACE_URL, DOMAIN)
-    type_uuid = uuid.uuid5(icdc_base_uuid, node_type)
-    node_uuid = uuid.uuid5(type_uuid, signature)
-    return str(node_uuid)
+    return get_uuid(DOMAIN, node_type, signature)
 
 
 class ICDC_Schema:
