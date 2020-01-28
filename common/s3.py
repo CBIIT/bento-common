@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+import os
+
 import boto3
 import botocore
-from .utils import get_logger
-import os
+
+from .utils import get_logger, get_md5_base64, remove_leading_slashes
 
 class S3Bucket:
     def __init__(self, bucket):
@@ -12,8 +14,9 @@ class S3Bucket:
         self.bucket = self.s3.Bucket(bucket)
         self.log = get_logger('S3 Bucket')
 
-    def upload_file_obj(self, key, data):
-        return self.bucket.put_object(Key=key, Body=data)
+    def upload_file_obj(self, key, data, md5_base64):
+        safer_key = remove_leading_slashes(key)
+        return self.bucket.put_object(Key=safer_key, Body=data, ContentMD5=md5_base64)
 
     def download_file(self, key, filename):
         return self.bucket.download_file(key, filename)
@@ -39,7 +42,8 @@ class S3Bucket:
 
     def upload_file(self, key, fileName):
         with open(fileName, 'rb') as data:
-            obj = self.upload_file_obj(key, data)
+            md5_base64 = get_md5_base64(fileName)
+            obj = self.upload_file_obj(key, data, md5_base64)
             if obj:
                 return {'bucket': self.bucket.name, 'key': key}
             else:
