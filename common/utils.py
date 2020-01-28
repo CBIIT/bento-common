@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import logging
 import os
@@ -19,6 +20,17 @@ def get_logger(name):
     log.addHandler(std_handler)
     return log
 
+
+def remove_leading_slashes(uri):
+    '''
+    Removes leading slashes from a uri or path
+    :param uri: URI or path
+    :return: URI or path with leading slashes removed
+    '''
+    if uri.startswith('/'):
+        return re.sub('^/+', '', uri)
+    else:
+        return uri
 
 def removeTrailingSlash(uri):
     if uri.endswith('/'):
@@ -57,21 +69,36 @@ def send_slack_message(url, messaage, log):
     else:
         log.error('Slack URL not set in configuration file!')
 
-def get_hash(file_name, hash_func):
+def get_hash(file_name, hash_obj):
     with open(file_name, 'rb') as afile:
         buf = afile.read(BLOCK_SIZE)
         while len(buf) > 0:
-            hash_func.update(buf)
+            hash_obj.update(buf)
             buf = afile.read(BLOCK_SIZE)
-    return hash_func.hexdigest()
+    return hash_obj
 
 def get_md5(file_name):
-    hash_func = hashlib.md5()
-    return get_hash(file_name, hash_func)
+    '''
+    Get MD5 of a file's content as a hex encoded string
+    :param file_name:
+    :return: hex encoded MD5
+    '''
+    hash_obj = hashlib.md5()
+    return get_hash(file_name, hash_obj).hexdigest()
+
+def get_md5_base64(file_name):
+    '''
+    Get MD5 of a file's content as a base64 encoded string
+    :param file_name:
+    :return: base64 encoded MD5
+    '''
+    hash_obj = hashlib.md5()
+    return base64.b64encode(get_hash(file_name, hash_obj).digest()).decode()
+
 
 def get_sha512(file_name):
-    hash_func = hashlib.sha512()
-    return get_hash(file_name, hash_func)
+    hash_obj = hashlib.sha512()
+    return get_hash(file_name, hash_obj).hexdigest()
 
 
 def get_uuid(domain, node_type, signature):
