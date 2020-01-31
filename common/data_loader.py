@@ -422,6 +422,7 @@ class DataLoader:
             reader = csv.DictReader(in_file, delimiter='\t')
             nodes_created = 0
             nodes_deleted = 0
+            node_type = 'UNKNOWN'
             relationship_deleted = 0
             line_num = 1
             for org_obj in reader:
