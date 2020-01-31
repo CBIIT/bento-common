@@ -77,14 +77,28 @@ def get_hash(file_name, hash_obj):
             buf = afile.read(BLOCK_SIZE)
     return hash_obj
 
+
+def get_md5_hex_n_base64(file_name):
+    '''
+    Get MD5 of a file's content as a hex encoded string and base64 encoded string
+    :param file_name:
+    :return: hex encoded MD5
+    '''
+    hash_obj = hashlib.md5()
+    hash = get_hash(file_name, hash_obj)
+    return {
+              'hex': hash.hexdigest(),
+              'base64': base64.b64encode(hash.digest()).decode()
+           }
+
+
 def get_md5(file_name):
     '''
     Get MD5 of a file's content as a hex encoded string
     :param file_name:
     :return: hex encoded MD5
     '''
-    hash_obj = hashlib.md5()
-    return get_hash(file_name, hash_obj).hexdigest()
+    return get_md5_hex_n_base64(file_name)['hex']
 
 def get_md5_base64(file_name):
     '''
@@ -92,8 +106,7 @@ def get_md5_base64(file_name):
     :param file_name:
     :return: base64 encoded MD5
     '''
-    hash_obj = hashlib.md5()
-    return base64.b64encode(get_hash(file_name, hash_obj).digest()).decode()
+    return get_md5_hex_n_base64(file_name)['base64']
 
 
 def get_sha512(file_name):

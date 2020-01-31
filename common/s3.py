@@ -3,8 +3,9 @@ import os
 
 import boto3
 import botocore
+from botocore.exceptions import ClientError
 
-from .utils import get_logger, get_md5_base64, remove_leading_slashes
+from .utils import get_logger, get_md5_hex_n_base64, remove_leading_slashes
 
 class S3Bucket:
     def __init__(self, bucket):
@@ -15,8 +16,7 @@ class S3Bucket:
         self.log = get_logger('S3 Bucket')
 
     def upload_file_obj(self, key, data, md5_base64):
-        safer_key = remove_leading_slashes(key)
-        return self.bucket.put_object(Key=safer_key, Body=data, ContentMD5=md5_base64)
+        return self.bucket.put_object(Key=key, Body=data, ContentMD5=md5_base64)
 
     def download_file(self, key, filename):
         return self.bucket.download_file(key, filename)
@@ -40,16 +40,41 @@ class S3Bucket:
         else:
             return True
 
+    def same_file_exists_on_s3(self, key, md5):
+        '''
+        Check if same file already exists in S3, return True only if file with same MD5 exists
+
+        :param key: file path
+        :param md5: file MD5
+        :return: boolean
+        '''
+        try:
+            self.client.head_object(Bucket=self.bucket.name, Key=key, IfMatch=md5)
+            return True
+        except ClientError as e:
+            if e.response['Error']['Code'] in ['404', '412']:
+                return False
+            else:
+                self.log.error('Unknown S3 client error!')
+                self.log.exception(e)
+
     def upload_file(self, key, fileName):
         with open(fileName, 'rb') as data:
-            md5_base64 = get_md5_base64(fileName)
-            obj = self.upload_file_obj(key, data, md5_base64)
-            if obj:
-                return {'bucket': self.bucket.name, 'key': key}
+            safer_key = remove_leading_slashes(key)
+            md5_obj = get_md5_hex_n_base64(fileName)
+            md5_base64 = md5_obj['base64']
+            md5_hex = md5_obj['hex']
+            if self.same_file_exists_on_s3(safer_key, md5_hex):
+                self.log.info('Same file already exists, skip uploading!')
+                return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex}
             else:
-                message = "Upload file {} to S3 failed!".format(fileName)
-                self.log.error(message)
-                return None
+                obj = self.upload_file_obj(safer_key, data, md5_base64)
+                if obj:
+                    return {'bucket': self.bucket.name, 'key': safer_key, 'md5': obj.e_tag[1:-1]}
+                else:
+                    message = "Upload file {} to S3 failed!".format(fileName)
+                    self.log.error(message)
+                    return None
 
     def download_files_in_folder(self, folder, local_path):
         try:
