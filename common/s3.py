@@ -66,7 +66,7 @@ class S3Bucket:
             md5_hex = md5_obj['hex']
             if self.same_file_exists_on_s3(safer_key, md5_hex):
                 self.log.info('Same file already exists, skip uploading!')
-                return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex}
+                return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex, 'skipped': True}
             else:
                 obj = self.upload_file_obj(safer_key, data, md5_base64)
                 if obj:
