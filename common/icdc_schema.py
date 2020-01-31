@@ -344,7 +344,7 @@ class ICDC_Schema:
             if  ENUM in model_type:
                 if not isinstance(value, str):
                     return False
-                if value not in model_type[ENUM]:
+                if value != '' and value not in model_type[ENUM]:
                     return False
         elif model_type[PROP_TYPE] == 'Date':
             if not isinstance(value, str):

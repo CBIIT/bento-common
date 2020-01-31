@@ -12,7 +12,7 @@ from neo4j import  Driver, Session, Transaction
 from .icdc_schema import ICDC_Schema, get_uuid_for_node
 from .utils import DATE_FORMAT, get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
     is_parent_pointer, RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
-    NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED
+    NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED, is_relationship_property
 from .config import PROPS, REL_PROP_DELIMITER
 
 NODE_TYPE = 'type'
@@ -285,6 +285,26 @@ class DataLoader:
 
         return not validation_failed
 
+    def get_node_properties(self, obj):
+        '''
+        Generate a node with only node properties from input data
+
+        :param obj: input data object (dict), may contain parent pointers, relationship properties etc.
+        :return: an object (dict) that only contains properties on this node
+        '''
+        node = {}
+
+        for key, value in obj.items():
+            if is_parent_pointer(key):
+                continue
+            elif is_relationship_property(key):
+                continue
+            else:
+                node[key] = value
+
+        return node
+
+
     # Validate file
     def validate_file(self, file_name, max_violations):
         with open(file_name) as in_file:
@@ -296,17 +316,21 @@ class DataLoader:
             IDs = {}
             for org_obj in reader:
                 obj = self.cleanup_node(org_obj)
+                props = self.get_node_properties(obj)
                 line_num += 1
                 id_field = self.schema.get_id_field(obj)
                 node_id = self.schema.get_id(obj)
                 if node_id:
                     if node_id in IDs:
-                        validation_failed = True
-                        self.log.error('Invalid data at line {}: duplicate {}: {}, found in line: {}'.format(line_num,
-                                                                                                             id_field, node_id, ', '.join(IDs[node_id])))
-                        IDs[node_id].append(str(line_num))
+                        if props != IDs[node_id]['props']:
+                            validation_failed = True
+                            self.log.error(f'Invalid data at line {line_num}: duplicate {id_field}: {node_id}, found in line: {", ".join(IDs[node_id]["lines"])}')
+                            IDs[node_id]['lines'].append(str(line_num))
+                        else:
+                            # Same ID exists in same file, but properties are also same, probably it's pointing same object to multiple parents
+                            self.log.debug(f'Duplicated data at line {line_num}: duplicate {id_field}: {node_id}, found in line: {", ".join(IDs[node_id]["lines"])}')
                     else:
-                        IDs[node_id] = [str(line_num)]
+                        IDs[node_id] = { 'props': props, 'lines': [str(line_num)] }
 
                 validate_result = self.schema.validate_node(obj[NODE_TYPE], obj)
                 if not validate_result['result']:
