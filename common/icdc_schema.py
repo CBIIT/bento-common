@@ -27,6 +27,10 @@ NODE_TYPE = 'type'
 ENUM = 'enum'
 DEFAULT_VALUE = 'default_value'
 HAS_UNIT = 'has_unit'
+MIN = 'minimum'
+MAX = 'maximum'
+EX_MIN = 'exclusiveMinimum'
+EX_MAX = 'exclusiveMaximum'
 
 
 def get_uuid_for_node(node_type, signature):
@@ -212,6 +216,16 @@ class ICDC_Schema:
                 else:
                     self.log.debug('Property type: "{}" not supported, use default type: "{}"'.format(prop_desc, DEFAULT_TYPE))
 
+                # Add value boundary support
+                if MIN in prop:
+                    result[MIN] = float(prop[MIN])
+                if MAX in prop:
+                    result[MAX] = float(prop[MAX])
+                if EX_MIN in prop:
+                    result[EX_MIN] = float(prop[EX_MIN])
+                if EX_MAX in prop:
+                    result[EX_MAX] = float(prop[EX_MAX])
+
         return result
 
     def get_prop(self, node_name, name):
@@ -309,57 +323,84 @@ class ICDC_Schema:
                 self.log.debug('Property "{}" is not in data model!'.format(key))
             else:
                 model_type = properties[key]
-                if not self.valid_type(model_type, value):
+                if not self._validate_type(model_type, value):
                     result['result'] = False
                     result['messages'].append('Property: "{}":"{}" is not a valid "{}" type!'.format(key, value, model_type))
 
         return result
 
     @staticmethod
-    def valid_type(model_type, value):
+    def _validate_value_range(model_type, value):
+        '''
+        Validate an int of float value, return whether value is in range
+
+        :param model_type: dict specify value type and boundary/range
+        :param value: value to be validated
+        :return: boolean
+        '''
+
+        if MIN in model_type:
+            if value < model_type[MIN]:
+                return False
+        if MAX in model_type:
+            if value > model_type[MAX]:
+                return False
+        if EX_MIN in model_type:
+            if value <= model_type[EX_MIN]:
+                return False
+        if EX_MAX in model_type:
+            if value >= model_type[EX_MAX]:
+                return False
+        return True
+
+    def _validate_type(self, model_type, str_value):
         if model_type[PROP_TYPE] == 'Float':
             try:
-                if value:
-                    float(value)
+                if str_value:
+                    value = float(str_value)
+                    if not self._validate_value_range(model_type, value):
+                        return False
             except ValueError:
                 return False
         elif model_type[PROP_TYPE] == 'Int':
             try:
-                if value:
-                    int(value)
+                if str_value:
+                    value = int(str_value)
+                    if not self._validate_value_range(model_type, value):
+                        return False
             except ValueError:
                 return False
         elif model_type[PROP_TYPE] == 'Boolean':
-            if (value and not re.match(r'\byes\b|\btrue\b', value, re.IGNORECASE)
-                    and not re.match(r'\bno\b|\bfalse\b', value, re.IGNORECASE)
-                    and not re.match(r'\bltf\b', value, re.IGNORECASE)):
+            if (str_value and not re.match(r'\byes\b|\btrue\b', str_value, re.IGNORECASE)
+                    and not re.match(r'\bno\b|\bfalse\b', str_value, re.IGNORECASE)
+                    and not re.match(r'\bltf\b', str_value, re.IGNORECASE)):
                 return False
         elif model_type[PROP_TYPE] == 'Array':
-            if not isinstance(value, list):
+            if not isinstance(str_value, list):
                 return False
         elif model_type[PROP_TYPE] == 'Object':
-            if not isinstance(value, dict):
+            if not isinstance(str_value, dict):
                 return False
         elif model_type[PROP_TYPE] == 'String':
             if  ENUM in model_type:
-                if not isinstance(value, str):
+                if not isinstance(str_value, str):
                     return False
-                if value != '' and value not in model_type[ENUM]:
+                if str_value != '' and str_value not in model_type[ENUM]:
                     return False
         elif model_type[PROP_TYPE] == 'Date':
-            if not isinstance(value, str):
+            if not isinstance(str_value, str):
                 return False
             try:
-                if value.strip() != '':
-                    datetime.strptime(value, DATE_FORMAT)
+                if str_value.strip() != '':
+                    datetime.strptime(str_value, DATE_FORMAT)
             except ValueError:
                 return False
         elif model_type[PROP_TYPE] == 'DateTime':
-            if not isinstance(value, str):
+            if not isinstance(str_value, str):
                 return False
             try:
-                if value.strip() != '':
-                    datetime.strptime(value, DATE_FORMAT)
+                if str_value.strip() != '':
+                    datetime.strptime(str_value, DATE_FORMAT)
             except ValueError:
                 return False
         return True
