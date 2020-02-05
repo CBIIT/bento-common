@@ -1,42 +1,46 @@
 from configparser import ConfigParser
-import os, sys
-
-import yaml
+import os
 
 from .utils import get_logger
 
-PSWD_ENV = 'NEO_PASSWORD'
-CONFIG_FILE_ENV_VAR = 'ICDC_DATA_LOADER_CONFIG'
+class BentoConfig:
+    def __init__(self, config_file):
+        self.log = get_logger('Bento Config')
+        self.PSWD_ENV = 'NEO_PASSWORD'
 
-util_log = get_logger('Utils')
-config = ConfigParser()
-config_file = os.environ.get(CONFIG_FILE_ENV_VAR, 'config/config.ini')
-if config_file and os.path.isfile(config_file):
-    config.read(config_file)
-else:
-    util_log.error('Can\'t find configuration file! Make a copy of config/config.example.ini to /config/config.ini'
-                   + ' or specify config file in Environment variable {}'.format(CONFIG_FILE_ENV_VAR))
-    sys.exit(1)
+        config = ConfigParser()
+        if config_file and os.path.isfile(config_file):
+            config.read(config_file)
+        else:
+            msg = f'Can NOT open configuration file "{config_file}"!'
+            self.log.error(msg)
+            raise Exception(msg)
 
-LOG_LEVEL = os.environ.get('DL_LOG_LEVEL', config.get('log', 'log_level'))
-DOMAIN = config.get('main', 'domain')
-QUEUE_LONG_PULL_TIME = int(config.get('sqs', 'long_pull_time'))
-VISIBILITY_TIMEOUT = int(config.get('sqs', 'visibility_timeout'))
+        self.LOG_LEVEL = os.environ.get('DL_LOG_LEVEL', config.get('log', 'log_level'))
+        self.DOMAIN = config.get('main', 'domain')
+        self.QUEUE_LONG_PULL_TIME = int(config.get('sqs', 'long_pull_time'))
+        self.VISIBILITY_TIMEOUT = int(config.get('sqs', 'visibility_timeout'))
 
-TEMP_FOLDER = config.get('main', 'temp_folder')
-BACKUP_FOLDER = config.get('main', 'backup_folder')
-INDEXD_GUID_PREFIX = config.get('indexd', 'GUID_prefix')
-INDEXD_MANIFEST_EXT = config.get('indexd', 'ext')
+        self.TEMP_FOLDER = config.get('main', 'temp_folder')
+        self.BACKUP_FOLDER = config.get('main', 'backup_folder')
+        self.INDEXD_GUID_PREFIX = config.get('indexd', 'GUID_prefix')
+        self.INDEXD_MANIFEST_EXT = config.get('indexd', 'ext')
 
-REL_PROP_DELIMITER = config.get('data', 'rel_prop_delimiter')
+        self.REL_PROP_DELIMITER = config.get('data', 'rel_prop_delimiter')
 
-if not INDEXD_MANIFEST_EXT.startswith('.'):
-    INDEXD_MANIFEST_EXT = '.' + INDEXD_MANIFEST_EXT
-os.makedirs(BACKUP_FOLDER, exist_ok=True)
-if not os.path.isdir(BACKUP_FOLDER):
-    util_log.error('{} is not a folder!'.format(BACKUP_FOLDER))
-    sys.exit(1)
+        if not self.INDEXD_MANIFEST_EXT.startswith('.'):
+            self.INDEXD_MANIFEST_EXT = '.' + self.INDEXD_MANIFEST_EXT
 
-SLACK_URL = config.get('slack', 'url')
+        self.SLACK_URL = config.get('slack', 'url')
+
+        self._create_backup_folder()
+
+    def _create_backup_folder(self):
+        os.makedirs(self.BACKUP_FOLDER, exist_ok=True)
+        if not os.path.isdir(self.BACKUP_FOLDER):
+            msg = f'{self.BACKUP_FOLDER} is not a folder!'
+            self.log.error(msg)
+            raise Exception(msg)
+
 
 

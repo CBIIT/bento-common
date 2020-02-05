@@ -76,7 +76,7 @@ def send_slack_message(url, messaage, log):
             if result:
                 log.error(result.content)
     else:
-        log.error('Slack URL not set in configuration file!')
+        log.error('Empty Slack URL given!')
 
 def get_hash(file_name, hash_obj):
     with open(file_name, 'rb') as afile:

@@ -1,4 +1,6 @@
 Properties:
+  domain: caninecommons.cancer.gov
+
   plurals:
     program: programs
     study: studies

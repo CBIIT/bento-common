@@ -6,7 +6,6 @@ import sys
 import yaml
 
 from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, is_parent_pointer, DATE_FORMAT, get_uuid
-from .config import DOMAIN
 from .props import Props
 
 NODES = 'Nodes'
@@ -33,16 +32,6 @@ MAX = 'maximum'
 EX_MIN = 'exclusiveMinimum'
 EX_MAX = 'exclusiveMaximum'
 
-
-def get_uuid_for_node(node_type, signature):
-    """Generate V5 UUID for a node
-    Arguments:
-        node_type - a string represents type of a node, e.g. case, study, file etc.
-        signature - a string that can uniquely identify a node within it's type, e.g. case_id, clinical_study_designation etc.
-                    or a long string with all properties and values concat together if no id available
-
-    """
-    return get_uuid(DOMAIN, node_type, signature)
 
 
 class ICDC_Schema:
@@ -93,6 +82,15 @@ class ICDC_Schema:
                     self.process_node(key, value)
                     self.num_relationship += self.process_edges(key, value)
 
+    def get_uuid_for_node(self, node_type, signature):
+        """Generate V5 UUID for a node
+        Arguments:
+            node_type - a string represents type of a node, e.g. case, study, file etc.
+            signature - a string that can uniquely identify a node within it's type, e.g. case_id, clinical_study_designation etc.
+                        or a long string with all properties and values concat together if no id available
+
+        """
+        return get_uuid(self.props.domain, node_type, signature)
 
     def process_node(self, name, desc):
         # Gather properties

@@ -16,6 +16,7 @@ class Props:
                 self.type_mapping = props.get('type_mapping', {})
                 self.id_fields = props.get('id_fields', {})
                 self.visit_date_in_nodes = props.get('visit_date_in_nodes', {})
+                self.domain = props.get('domain', 'Unknown.domain.nci.nih.gov')
         else:
             msg = f'Can NOT open file: "{file_name}"'
             self.log.error(msg)

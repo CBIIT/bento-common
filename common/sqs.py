@@ -4,10 +4,10 @@ import json
 from threading import Timer
 
 from .utils import get_logger
-from .config import QUEUE_LONG_PULL_TIME
 
 class Queue:
-    def __init__(self, queue_name):
+    def __init__(self, queue_name, long_pull_time=20):
+        self.long_pull_time = long_pull_time
         self.log = get_logger('SQS')
         self.sqs = boto3.resource('sqs')
         self.queue = self.sqs.get_queue_by_name(QueueName=queue_name)
@@ -20,7 +20,7 @@ class Queue:
 
     def receiveMsgs(self, visibilityTimeOut):
         return self.queue.receive_messages(VisibilityTimeout = visibilityTimeOut,
-                                           WaitTimeSeconds = QUEUE_LONG_PULL_TIME,
+                                           WaitTimeSeconds = self.long_pull_time,
                                            MaxNumberOfMessages = 1)
 
     def getApproximateNumberOfMessages(self):

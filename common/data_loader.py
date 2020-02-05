@@ -9,11 +9,10 @@ from timeit import default_timer as timer
 
 from neo4j import  Driver, Session, Transaction
 
-from .icdc_schema import ICDC_Schema, get_uuid_for_node
+from .icdc_schema import ICDC_Schema
 from .utils import DATE_FORMAT, get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
     is_parent_pointer, RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
     NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED, is_relationship_property
-from .config import REL_PROP_DELIMITER
 
 NODE_TYPE = 'type'
 VISIT_NODE = 'visit'
@@ -41,12 +40,13 @@ PROVIDED_PARENTS = 'provided_parents'
 RELATIONSHIP_PROPS = 'relationship_properties'
 
 class DataLoader:
-    def __init__(self, driver, schema):
+    def __init__(self, driver, schema, rel_prop_delimiter='$'):
         if not schema or not isinstance(schema, ICDC_Schema):
             raise Exception('Invalid ICDC_Schema object')
         self.log = get_logger('Data Loader')
         self.driver = driver
         self.schema = schema
+        self.rel_prop_delimiter = rel_prop_delimiter
 
     def check_files(self, file_list):
         if not file_list:
@@ -151,8 +151,8 @@ class DataLoader:
                 search_key = key
                 if is_parent_pointer(key):
                     search_node_type, search_key = key.split('.')
-                elif DataLoader.is_relationship_property(key):
-                    search_node_type, search_key = key.split(REL_PROP_DELIMITER)
+                elif self.is_relationship_property(key):
+                    search_node_type, search_key = key.split(self.rel_prop_delimiter)
 
                 key_type = self.schema.get_prop_type(search_node_type, search_key)
                 if key_type == 'Boolean':
@@ -191,9 +191,9 @@ class DataLoader:
             node_type = obj.get(NODE_TYPE)
             if node_type:
                 if not id_value:
-                    obj[UUID] = get_uuid_for_node(node_type, self.get_signature(obj))
+                    obj[UUID] = self.schema.get_uuid_for_node(node_type, self.get_signature(obj))
                 elif id_field != UUID:
-                    obj[UUID] = get_uuid_for_node(node_type, id_value)
+                    obj[UUID] = self.schema.get_uuid_for_node(node_type, id_value)
             else:
                 raise Exception('No "type" property in node')
 
@@ -342,8 +342,7 @@ class DataLoader:
                         return False
             return not validation_failed
 
-    @staticmethod
-    def get_new_statement(node_type, obj):
+    def get_new_statement(self, node_type, obj):
         # statement is used to create current node
         prop_stmts = []
 
@@ -352,7 +351,7 @@ class DataLoader:
                 continue
             elif is_parent_pointer(key):
                 continue
-            elif DataLoader.is_relationship_property(key):
+            elif self.is_relationship_property(key):
                 continue
 
             prop_stmts.append('{0}: {{{0}}}'.format(key))
@@ -360,8 +359,7 @@ class DataLoader:
         statement = 'CREATE (:{0} {{ {1} }})'.format(node_type, ' ,'.join(prop_stmts))
         return statement
 
-    @staticmethod
-    def get_upsert_statement(node_type, id_field, obj):
+    def get_upsert_statement(self, node_type, id_field, obj):
         # statement is used to create current node
         statement = ''
         prop_stmts = []
@@ -373,7 +371,7 @@ class DataLoader:
                 continue
             elif is_parent_pointer(key):
                 continue
-            elif DataLoader.is_relationship_property(key):
+            elif self.is_relationship_property(key):
                 continue
 
             prop_stmts.append('n.{0} = {{{0}}}'.format(key))
@@ -528,15 +526,14 @@ class DataLoader:
                         relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,
                                           RELATIONSHIP_TYPE: relationship_name, MULTIPLIER: multiplier})
             elif self.is_relationship_property(key):
-                rel_name, prop_name = key.split(REL_PROP_DELIMITER)
+                rel_name, prop_name = key.split(self.rel_prop_delimiter)
                 if rel_name not in relationship_properties:
                     relationship_properties[rel_name] = {}
                 relationship_properties[rel_name][prop_name] = value
         return {RELATIONSHIPS: relationships, VISITS_CREATED: visits_created, PROVIDED_PARENTS: provided_parents, RELATIONSHIP_PROPS: relationship_properties}
 
-    @staticmethod
-    def is_relationship_property(key):
-        return re.match(r'^.+\{}.+$'.format(REL_PROP_DELIMITER), key)
+    def is_relationship_property(self, key):
+        return re.match(r'^.+\{}.+$'.format(self.rel_prop_delimiter), key)
 
     def parent_already_has_child(self, session, node_type, node, relationship_name, parent_type, parent_id_field, parent_id):
         statement = 'MATCH (n:{})-[r:{}]->(m:{} {{ {}: {{parent_id}} }}) return n'.format(node_type, relationship_name, parent_type, parent_id_field)
@@ -694,7 +691,7 @@ class DataLoader:
         statement += ' ON CREATE SET v.{} = datetime()'.format(CREATED)
         statement += ' ON MATCH SET v.{} = datetime()'.format(UPDATED)
 
-        result = session.run(statement, {"node_id": node_id, "date": date, UUID: get_uuid_for_node(VISIT_NODE, node_id)})
+        result = session.run(statement, {"node_id": node_id, "date": date, UUID: self.schema.get_uuid_for_node(VISIT_NODE, node_id)})
         if result:
             count = result.summary().counters.nodes_created
             self.nodes_created += count
