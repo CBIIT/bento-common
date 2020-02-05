@@ -17,7 +17,6 @@ class BentoConfig:
             raise Exception(msg)
 
         self.LOG_LEVEL = os.environ.get('DL_LOG_LEVEL', config.get('log', 'log_level'))
-        self.DOMAIN = config.get('main', 'domain')
         self.QUEUE_LONG_PULL_TIME = int(config.get('sqs', 'long_pull_time'))
         self.VISIBILITY_TIMEOUT = int(config.get('sqs', 'visibility_timeout'))
 
