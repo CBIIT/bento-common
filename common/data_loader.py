@@ -13,7 +13,7 @@ from .icdc_schema import ICDC_Schema, get_uuid_for_node
 from .utils import DATE_FORMAT, get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
     is_parent_pointer, RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
     NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED, is_relationship_property
-from .config import PROPS, REL_PROP_DELIMITER
+from .config import REL_PROP_DELIMITER
 
 NODE_TYPE = 'type'
 VISIT_NODE = 'visit'
@@ -677,7 +677,7 @@ class DataLoader:
         if not session or (not isinstance(session, Session) and not isinstance(session, Transaction)):
             self.log.error("Neo4j session is not valid!")
             return False
-        date_map = PROPS['visit_date_in_nodes']
+        date_map = self.schema.props.visit_date_in_nodes
         if NODE_TYPE not in src:
             self.log.error('Line: {}: Given object doesn\'t have a "{}" field!'.format(line_num, NODE_TYPE))
             return False

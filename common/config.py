@@ -6,7 +6,6 @@ import yaml
 from .utils import get_logger
 
 PSWD_ENV = 'NEO_PASSWORD'
-PROP_FILE_ENV_VAR = 'ICDC_DATA_LOADER_PROP'
 CONFIG_FILE_ENV_VAR = 'ICDC_DATA_LOADER_CONFIG'
 
 util_log = get_logger('Utils')
@@ -15,7 +14,7 @@ config_file = os.environ.get(CONFIG_FILE_ENV_VAR, 'config/config.ini')
 if config_file and os.path.isfile(config_file):
     config.read(config_file)
 else:
-    util_log.error('Can\'t find configuration file! Make a copy of config/config.sample.ini to /config/config.ini'
+    util_log.error('Can\'t find configuration file! Make a copy of config/config.example.ini to /config/config.ini'
                    + ' or specify config file in Environment variable {}'.format(CONFIG_FILE_ENV_VAR))
     sys.exit(1)
 
@@ -39,18 +38,5 @@ if not os.path.isdir(BACKUP_FOLDER):
     sys.exit(1)
 
 SLACK_URL = config.get('slack', 'url')
-
-property_file = os.environ.get(PROP_FILE_ENV_VAR, 'config/props.yml')
-if property_file and os.path.isfile(property_file):
-    with open(property_file) as prop_file:
-        PROPS = yaml.safe_load(prop_file)['Properties']
-        if not PROPS:
-            util_log.error('Can\'t read property file!')
-            sys.exit(1)
-else:
-    util_log.error(
-        'Can\'t find property file! Get a copy of config/props.sample.yml to /config/props.yml or specify property file in Environment variable {}'.format(
-            PROP_FILE_ENV_VAR))
-    sys.exit(1)
 
 

@@ -6,7 +6,8 @@ import sys
 import yaml
 
 from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, is_parent_pointer, DATE_FORMAT, get_uuid
-from .config import DOMAIN, PROPS
+from .config import DOMAIN
+from .props import Props
 
 NODES = 'Nodes'
 RELATIONSHIPS = 'Relationships'
@@ -45,16 +46,18 @@ def get_uuid_for_node(node_type, signature):
 
 
 class ICDC_Schema:
-    def __init__(self, files):
-        if not files:
+    def __init__(self, yaml_files, props):
+        assert isinstance(props, Props)
+        self.props = props
+        if not yaml_files:
             raise Exception('File list is empty, couldn\'t initialize ICDC_Schema object!')
         else:
-            for data_file in files:
+            for data_file in yaml_files:
                 if not os.path.isfile(data_file):
                     raise Exception('File "{}" doesn\'t exist'.format(data_file))
         self.log = get_logger('ICDC Schema')
         self.org_schema = {}
-        for aFile in files:
+        for aFile in yaml_files:
             try:
                 self.log.info('Reading schema file: {} ...'.format(aFile))
                 if os.path.isfile(aFile):
@@ -433,7 +436,7 @@ class ICDC_Schema:
 
     # Get type info from description
     def map_type(self, type_name):
-        mapping = PROPS['type_mapping']
+        mapping = self.props.type_mapping
         result = DEFAULT_TYPE
 
         if type_name in mapping:
@@ -444,7 +447,7 @@ class ICDC_Schema:
         return result
 
     def plural(self, word):
-        plurals = PROPS['plurals']
+        plurals = self.props.plurals
         if word in plurals:
             return plurals[word]
         else:
@@ -485,7 +488,7 @@ class ICDC_Schema:
             self.log.error('get_id_field: there is no "{}" field in node, can\'t retrieve id!'.format(NODE_TYPE))
             return None
         node_type = obj[NODE_TYPE]
-        id_fields = PROPS['id_fields']
+        id_fields = self.props.id_fields
         if node_type:
             return id_fields.get(node_type, 'uuid')
         else:
@@ -501,11 +504,3 @@ class ICDC_Schema:
             return None
         else:
             return obj[id_field]
-
-
-if __name__ == '__main__':
-    files = ['/Users/yingm3/work/icdc/code/model-tool/model-desc/icdc-model.yml', '/Users/yingm3/work/icdc/code/model-tool/model-desc/icdc-model-props.yml']
-
-    schema = ICDC_Schema(files)
-    for key in schema.org_schema:
-        print(key)
