@@ -11,8 +11,8 @@ from neo4j import  Driver, Session, Transaction
 
 from .icdc_schema import ICDC_Schema
 from .utils import DATE_FORMAT, get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
-    is_parent_pointer, RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
-    NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED, is_relationship_property
+    RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
+    NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED
 
 NODE_TYPE = 'type'
 VISIT_NODE = 'visit'
@@ -149,9 +149,9 @@ class DataLoader:
             for key, value in obj.items():
                 search_node_type = node_type
                 search_key = key
-                if is_parent_pointer(key):
+                if self.schema.is_parent_pointer(key):
                     search_node_type, search_key = key.split('.')
-                elif self.is_relationship_property(key):
+                elif self.schema.is_relationship_property(key):
                     search_node_type, search_key = key.split(self.rel_prop_delimiter)
 
                 key_type = self.schema.get_prop_type(search_node_type, search_key)
@@ -201,7 +201,7 @@ class DataLoader:
         for key, value in obj.items():
             obj2[key] = value
             # Add parent id field(s) into node
-            if is_parent_pointer(key):
+            if self.schema.is_parent_pointer(key):
                 header = key.split('.')
                 if len(header) > 2:
                     self.log.warning('Column header "{}" has multiple periods!'.format(key))
@@ -295,9 +295,9 @@ class DataLoader:
         node = {}
 
         for key, value in obj.items():
-            if is_parent_pointer(key):
+            if self.schema.is_parent_pointer(key):
                 continue
-            elif is_relationship_property(key):
+            elif self.schema.is_relationship_property(key):
                 continue
             else:
                 node[key] = value
@@ -349,9 +349,9 @@ class DataLoader:
         for key in obj.keys():
             if key in excluded_fields:
                 continue
-            elif is_parent_pointer(key):
+            elif self.schema.is_parent_pointer(key):
                 continue
-            elif self.is_relationship_property(key):
+            elif self.schema.is_relationship_property(key):
                 continue
 
             prop_stmts.append('{0}: {{{0}}}'.format(key))
@@ -369,9 +369,9 @@ class DataLoader:
                 continue
             elif key == id_field:
                 continue
-            elif is_parent_pointer(key):
+            elif self.schema.is_parent_pointer(key):
                 continue
-            elif self.is_relationship_property(key):
+            elif self.schema.is_relationship_property(key):
                 continue
 
             prop_stmts.append('n.{0} = {{{0}}}'.format(key))
@@ -497,7 +497,7 @@ class DataLoader:
         provided_parents = 0
         relationship_properties = {}
         for key, value in obj.items():
-            if is_parent_pointer(key):
+            if self.schema.is_parent_pointer(key):
                 provided_parents += 1
                 other_node, other_id = key.split('.')
                 relationship = self.schema.get_relationship(node_type, other_node)
@@ -525,15 +525,12 @@ class DataLoader:
                     else:
                         relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,
                                           RELATIONSHIP_TYPE: relationship_name, MULTIPLIER: multiplier})
-            elif self.is_relationship_property(key):
+            elif self.schema.is_relationship_property(key):
                 rel_name, prop_name = key.split(self.rel_prop_delimiter)
                 if rel_name not in relationship_properties:
                     relationship_properties[rel_name] = {}
                 relationship_properties[rel_name][prop_name] = value
         return {RELATIONSHIPS: relationships, VISITS_CREATED: visits_created, PROVIDED_PARENTS: provided_parents, RELATIONSHIP_PROPS: relationship_properties}
-
-    def is_relationship_property(self, key):
-        return re.match(r'^.+\{}.+$'.format(self.rel_prop_delimiter), key)
 
     def parent_already_has_child(self, session, node_type, node, relationship_name, parent_type, parent_id_field, parent_id):
         statement = 'MATCH (n:{})-[r:{}]->(m:{} {{ {}: {{parent_id}} }}) return n'.format(node_type, relationship_name, parent_type, parent_id_field)

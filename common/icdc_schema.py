@@ -5,7 +5,7 @@ import sys
 
 import yaml
 
-from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, is_parent_pointer, DATE_FORMAT, get_uuid
+from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, DATE_FORMAT, get_uuid
 from .props import Props
 
 NODES = 'Nodes'
@@ -320,7 +320,7 @@ class ICDC_Schema:
         for key, value in obj.items():
             if key == NODE_TYPE:
                 continue
-            elif is_parent_pointer(key):
+            elif self.is_parent_pointer(key):
                 continue
             elif key not in properties:
                 self.log.debug('Property "{}" is not in data model!'.format(key))
@@ -504,3 +504,11 @@ class ICDC_Schema:
             return None
         else:
             return obj[id_field]
+
+    def is_relationship_property(self, key):
+        return re.match(r'^.+\{}.+$'.format(self.rel_prop_delimiter), key)
+
+
+    def is_parent_pointer(self, field_name):
+        return re.fullmatch(r'\w+\.\w+', field_name) is not None
+

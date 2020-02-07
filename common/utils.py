@@ -38,19 +38,6 @@ def removeTrailingSlash(uri):
     else:
         return uri
 
-def is_parent_pointer(field_name):
-    return re.fullmatch(r'\w+\.\w+', field_name) is not None
-
-def is_relationship_property(field_name):
-    '''
-    Identify if a field name is a relationship property
-
-    :param field_name:
-    :return: boolean
-    '''
-    return re.fullmatch(r'\w+\$\w+', field_name) is not None
-
-
 def get_host(uri):
     parts = urlparse(uri)
     return parts.hostname
