@@ -61,6 +61,7 @@ class ICDC_Schema:
 
         self.nodes = {}
         self.relationships = {}
+        self.relationship_props = {}
         self.num_relationship = 0
 
         self.log.debug("-------------processing nodes-----------------")
@@ -94,8 +95,13 @@ class ICDC_Schema:
         """
         return get_uuid(self.props.domain, node_type, signature)
 
-    def process_node(self, name, desc):
-        # Gather properties
+    def _process_properties(self, desc):
+        '''
+        Gather properties from description
+
+        :param desc: description of properties
+        :return: a dict with properties, required property list and private property list
+        '''
         props = {}
         required = set()
         private = set()
@@ -111,8 +117,13 @@ class ICDC_Schema:
                 if self.is_private_prop(prop):
                     private.add(prop)
 
-        if props:
-            self.nodes[name] = { PROPERTIES: props, REQUIRED: required, PRIVATE: private}
+        return {PROPERTIES: props, REQUIRED: required, PRIVATE: private}
+
+    def process_node(self, name, desc):
+        properties = self._process_properties(desc)
+
+        if properties[PROPERTIES]:
+            self.nodes[name] = properties
 
     def process_edges(self, name, desc):
         count = 0
@@ -120,6 +131,9 @@ class ICDC_Schema:
             multiplier = desc[MULTIPLIER]
         else:
             multiplier = DEFAULT_MULTIPLIER
+
+        properties = self._process_properties(desc)
+        self.relationship_props[name] = properties
 
         if END_POINTS in desc:
             for  end_points in desc[END_POINTS]:
@@ -322,13 +336,30 @@ class ICDC_Schema:
                 continue
             elif self.is_parent_pointer(key):
                 continue
+            elif self.is_relationship_property(key):
+                rel_type, rel_prop = key.split(self.rel_prop_delimiter)
+                if rel_type not in self.relationship_props:
+                    result['result'] = False
+                    result['messages'].append(f'Relationship "{rel_type}" does NOT exist in data model!')
+                    continue
+                elif rel_prop not in self.relationship_props[rel_type][PROPERTIES]:
+                    result['result'] = False
+                    result['messages'].append(f'Property "{rel_prop}" does NOT exist in relationship "{rel_type}"!')
+                    continue
+
+                prop_type = self.relationship_props[rel_type][PROPERTIES][rel_prop]
+                if not self._validate_type(prop_type, value):
+                    result['result'] = False
+                    result['messages'].append(
+                        'Property: "{}":"{}" is not a valid "{}" type!'.format(rel_prop, value, rel_type))
+
             elif key not in properties:
                 self.log.debug('Property "{}" is not in data model!'.format(key))
             else:
-                model_type = properties[key]
-                if not self._validate_type(model_type, value):
+                prop_type = properties[key]
+                if not self._validate_type(prop_type, value):
                     result['result'] = False
-                    result['messages'].append('Property: "{}":"{}" is not a valid "{}" type!'.format(key, value, model_type))
+                    result['messages'].append('Property: "{}":"{}" is not a valid "{}" type!'.format(key, value, prop_type))
 
         return result
 
