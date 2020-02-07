@@ -40,13 +40,13 @@ PROVIDED_PARENTS = 'provided_parents'
 RELATIONSHIP_PROPS = 'relationship_properties'
 
 class DataLoader:
-    def __init__(self, driver, schema, rel_prop_delimiter='$'):
+    def __init__(self, driver, schema):
         if not schema or not isinstance(schema, ICDC_Schema):
             raise Exception('Invalid ICDC_Schema object')
         self.log = get_logger('Data Loader')
         self.driver = driver
         self.schema = schema
-        self.rel_prop_delimiter = rel_prop_delimiter
+        self.rel_prop_delimiter = self.schema.rel_prop_delimiter
 
     def check_files(self, file_list):
         if not file_list:

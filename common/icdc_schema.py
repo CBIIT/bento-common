@@ -38,6 +38,8 @@ class ICDC_Schema:
     def __init__(self, yaml_files, props):
         assert isinstance(props, Props)
         self.props = props
+        self.rel_prop_delimiter = props.rel_prop_delimiter
+
         if not yaml_files:
             raise Exception('File list is empty, couldn\'t initialize ICDC_Schema object!')
         else:
