@@ -351,7 +351,7 @@ class ICDC_Schema:
                 if not self._validate_type(prop_type, value):
                     result['result'] = False
                     result['messages'].append(
-                        'Property: "{}":"{}" is not a valid "{}" type!'.format(rel_prop, value, rel_type))
+                        'Property: "{}":"{}" is not a valid "{}" type!'.format(rel_prop, value, prop_type))
 
             elif key not in properties:
                 self.log.debug('Property "{}" is not in data model!'.format(key))
