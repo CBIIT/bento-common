@@ -1,6 +1,6 @@
 import requests
 
-def get_okta_token(secrets,config,url=''):
+def get_okta_token(secrets, url=''):
     
     
     body = {"client_id": secrets["OKTA_CLIENT_ID"],
