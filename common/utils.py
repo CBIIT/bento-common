@@ -15,6 +15,7 @@ def get_logger(name):
     Return a logger object with given name
 
     Log entries will be print to standard output as well as a log file
+    Log file can be disabled by setting env_var BENTO_NO_LOG to any value
 
     Log level is specified in env_var BENTO_LOG_LEVEL or INFO if not specified
 
@@ -38,14 +39,15 @@ def get_logger(name):
         std_handler.setFormatter(formatter)
         log.addHandler(std_handler)
 
-        log_folder = os.environ.get('BENTO_LOG_FOLDER', 'tmp')
-        # Create log folder if not exist
-        if not os.path.isdir(log_folder):
-            os.makedirs(log_folder, exist_ok=True)
+        no_log_file = os.environ.get('BENTO_NO_LOG')
+        if not no_log_file:
+            log_folder = os.environ.get('BENTO_LOG_FOLDER', 'tmp')
+            # Create log folder if not exist
+            if not os.path.isdir(log_folder):
+                os.makedirs(log_folder, exist_ok=True)
 
-        log_file_prefix = os.environ.get('BENTO_LOG_FILE_PREFIX', 'bento')
-        log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
-        if log_file:
+            log_file_prefix = os.environ.get('BENTO_LOG_FILE_PREFIX', 'bento')
+            log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
             log.addHandler(file_handler)
