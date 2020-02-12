@@ -1,4 +1,5 @@
 import base64
+import datetime
 import hashlib
 import logging
 import os
@@ -10,17 +11,48 @@ from requests import post
 
 
 def get_logger(name):
-    formatter = logging.Formatter('%(asctime)s %(levelname)s: (%(name)s) - %(message)s')
-    # formatter = logging.Formatter('[%(levelname)s] %(module)s - %(message)s')
-    log_level = os.environ.get('DL_LOG_LEVEL', 'INFO')
+    '''
+    Return a logger object with given name
+
+    Log entries will be print to standard output as well as a log file
+
+    Log level is specified in env_var BENTO_LOG_LEVEL or INFO if not specified
+
+    Log file will be put in folder specified in env_var BENTO_LOG_FOLDER
+      or 'tmp' if not specified
+      log folder will be created if not already exist
+    Log file will have name in format "<prefix>-<timestamp>.log"
+    Log file prefix is specified in env_var BENTO_LOG_FILE_PREFIX
+      or 'bento' if not specified
+
+    :param name: logger name
+    :return:
+    '''
     log = logging.getLogger(name)
     if not log.handlers:
+        log_level = os.environ.get('BENTO_LOG_LEVEL', 'INFO')
         log.setLevel(log_level)
+
         std_handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s %(levelname)s: (%(name)s) - %(message)s')
         std_handler.setFormatter(formatter)
         log.addHandler(std_handler)
+
+        log_folder = os.environ.get('BENTO_LOG_FOLDER', 'tmp')
+        # Create log folder if not exist
+        if not os.path.isdir(log_folder):
+            os.makedirs(log_folder, exist_ok=True)
+
+        log_file_prefix = os.environ.get('BENTO_LOG_FILE_PREFIX', 'bento')
+        log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
+        if log_file:
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(formatter)
+            log.addHandler(file_handler)
     return log
 
+def get_time_stamp():
+    return datetime.datetime.now().strftime(DATETIME_FORMAT)
 
 def remove_leading_slashes(uri):
     '''
