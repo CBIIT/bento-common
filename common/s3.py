@@ -16,7 +16,10 @@ class S3Bucket:
         self.log = get_logger('S3 Bucket')
 
     def upload_file_obj(self, key, data, md5_base64):
-        return self.bucket.put_object(Key=key, Body=data, ContentMD5=md5_base64)
+        return self.bucket.put_object(Key=key,
+                                      Body=data,
+                                      ContentMD5=md5_base64,
+                                      ACL='bucket-owner-full-control')
 
     def download_file(self, key, filename):
         return self.bucket.download_file(key, filename)
