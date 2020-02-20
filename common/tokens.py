@@ -13,6 +13,9 @@ def get_okta_token(secrets, url=''):
     
 
     r = requests.post(url, data=(body), headers=headers)
+    if r.status_code != 200:
+        raise Exception(f'Error getting token, response status: "{r.status_code}: {r.text}"')
+
     token = r.json()['token_type'] +' '+ r.json()['access_token']
     #print(token)
     return token
