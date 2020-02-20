@@ -77,16 +77,21 @@ class S3Bucket:
                 return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex, 'skipped': True}
             else:
                 if multipart:
-                    obj = self._upload_file_obj(safer_key, data)
+                    try:
+                        self._upload_file_obj(safer_key, data)
+                        return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex}
+                    except ClientError as e:
+                        self.log.exception(e)
+                        return None
                 else:
                     obj = self._put_file_obj(safer_key, data, md5_base64)
 
-                if obj:
-                    return {'bucket': self.bucket.name, 'key': safer_key, 'md5': obj.e_tag[1:-1]}
-                else:
-                    message = "Upload file {} to S3 failed!".format(file_name)
-                    self.log.error(message)
-                    return None
+                    if obj:
+                        return {'bucket': self.bucket.name, 'key': safer_key, 'md5': obj.e_tag[1:-1]}
+                    else:
+                        message = "Upload file {} to S3 failed!".format(file_name)
+                        self.log.error(message)
+                        return None
 
     def download_files_in_folder(self, folder, local_path):
         try:
