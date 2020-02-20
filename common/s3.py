@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 from .utils import get_logger, get_md5_hex_n_base64, remove_leading_slashes
 
 BUCKET_OWNER_ACL = 'bucket-owner-full-control'
+SINGLE_PUT_LIMIT = 4_500_000_000
 
 class S3Bucket:
     def __init__(self, bucket):
@@ -66,7 +67,7 @@ class S3Bucket:
                 self.log.error('Unknown S3 client error!')
                 self.log.exception(e)
 
-    def upload_file(self, key, file_name, multipart=False):
+    def upload_file(self, key, file_name):
         with open(file_name, 'rb') as data:
             safer_key = remove_leading_slashes(key)
             md5_obj = get_md5_hex_n_base64(file_name)
@@ -76,7 +77,8 @@ class S3Bucket:
                 self.log.info('Same file already exists, skip uploading!')
                 return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex, 'skipped': True}
             else:
-                if multipart:
+                file_size = os.path.getsize(file_name)
+                if file_size > SINGLE_PUT_LIMIT:
                     try:
                         self._upload_file_obj(safer_key, data)
                         return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex}
