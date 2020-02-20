@@ -7,6 +7,8 @@ from botocore.exceptions import ClientError
 
 from .utils import get_logger, get_md5_hex_n_base64, remove_leading_slashes
 
+BUCKET_OWNER_ACL = 'bucket-owner-full-control'
+
 class S3Bucket:
     def __init__(self, bucket):
         self.bucket_name = bucket
@@ -15,11 +17,14 @@ class S3Bucket:
         self.bucket = self.s3.Bucket(bucket)
         self.log = get_logger('S3 Bucket')
 
-    def upload_file_obj(self, key, data, md5_base64):
+    def _put_file_obj(self, key, data, md5_base64):
         return self.bucket.put_object(Key=key,
                                       Body=data,
                                       ContentMD5=md5_base64,
-                                      ACL='bucket-owner-full-control')
+                                      ACL= BUCKET_OWNER_ACL)
+
+    def _upload_file_obj(self, key, data):
+        return self.bucket.upload_fileobj(data, key, ExtraArgs={'ACL': BUCKET_OWNER_ACL})
 
     def download_file(self, key, filename):
         return self.bucket.download_file(key, filename)
@@ -61,21 +66,25 @@ class S3Bucket:
                 self.log.error('Unknown S3 client error!')
                 self.log.exception(e)
 
-    def upload_file(self, key, fileName):
-        with open(fileName, 'rb') as data:
+    def upload_file(self, key, file_name, multipart=False):
+        with open(file_name, 'rb') as data:
             safer_key = remove_leading_slashes(key)
-            md5_obj = get_md5_hex_n_base64(fileName)
+            md5_obj = get_md5_hex_n_base64(file_name)
             md5_base64 = md5_obj['base64']
             md5_hex = md5_obj['hex']
             if self.same_file_exists_on_s3(safer_key, md5_hex):
                 self.log.info('Same file already exists, skip uploading!')
                 return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex, 'skipped': True}
             else:
-                obj = self.upload_file_obj(safer_key, data, md5_base64)
+                if multipart:
+                    obj = self._upload_file_obj(safer_key, data)
+                else:
+                    obj = self._put_file_obj(safer_key, data, md5_base64)
+
                 if obj:
                     return {'bucket': self.bucket.name, 'key': safer_key, 'md5': obj.e_tag[1:-1]}
                 else:
-                    message = "Upload file {} to S3 failed!".format(fileName)
+                    message = "Upload file {} to S3 failed!".format(file_name)
                     self.log.error(message)
                     return None
 
