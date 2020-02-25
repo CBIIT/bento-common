@@ -89,7 +89,7 @@ class S3Bucket:
                     obj = self._put_file_obj(safer_key, data, md5_base64)
 
                     if obj:
-                        return {'bucket': self.bucket.name, 'key': safer_key, 'md5': obj.e_tag[1:-1]}
+                        return {'bucket': self.bucket.name, 'key': safer_key, 'md5': md5_hex}
                     else:
                         message = "Upload file {} to S3 failed!".format(file_name)
                         self.log.error(message)
