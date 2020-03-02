@@ -12,6 +12,7 @@ from requests import post
 NO_LOG = 'BENTO_NO_LOG'
 LOG_ENVVAR = 'BENTO_LOG_FILE_PREFIX'
 
+log_file = None
 
 def get_logger(name):
     '''
@@ -56,6 +57,9 @@ def get_log_file():
 
     :return: log file path
     '''
+    global log_file
+    if log_file:
+        return log_file
 
     no_log_file = os.environ.get(NO_LOG)
     if not no_log_file:
