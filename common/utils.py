@@ -9,6 +9,9 @@ import uuid
 
 from requests import post
 
+NO_LOG = 'BENTO_NO_LOG'
+LOG_ENVVAR = 'BENTO_LOG_FILE_PREFIX'
+
 
 def get_logger(name):
     '''
@@ -39,19 +42,34 @@ def get_logger(name):
         std_handler.setFormatter(formatter)
         log.addHandler(std_handler)
 
-        no_log_file = os.environ.get('BENTO_NO_LOG')
+        no_log_file = os.environ.get(NO_LOG)
         if not no_log_file:
-            log_folder = os.environ.get('BENTO_LOG_FOLDER', 'tmp')
-            # Create log folder if not exist
-            if not os.path.isdir(log_folder):
-                os.makedirs(log_folder, exist_ok=True)
-
-            log_file_prefix = os.environ.get('BENTO_LOG_FILE_PREFIX', 'bento')
-            log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
+            log_file = get_log_file()
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
             log.addHandler(file_handler)
     return log
+
+def get_log_file():
+    '''
+    Returns log file path for a given logger
+
+    :return: log file path
+    '''
+
+    no_log_file = os.environ.get(NO_LOG)
+    if not no_log_file:
+        log_folder = os.environ.get('BENTO_LOG_FOLDER', 'tmp')
+        # Create log folder if not exist
+        if not os.path.isdir(log_folder):
+            os.makedirs(log_folder, exist_ok=True)
+
+        log_file_prefix = os.environ.get('BENTO_LOG_FILE_PREFIX', 'bento')
+        log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
+        return log_file
+    else:
+        return None
+
 
 def get_time_stamp():
     return datetime.datetime.now().strftime(DATETIME_FORMAT)
