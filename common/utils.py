@@ -4,13 +4,15 @@ import hashlib
 import logging
 import os
 import re
+import time
 from urllib.parse import urlparse
 import uuid
 
 from requests import post
 
 NO_LOG = 'BENTO_NO_LOG'
-LOG_ENVVAR = 'BENTO_LOG_FILE_PREFIX'
+LOG_PREFIX = 'BENTO_LOG_FILE_PREFIX'
+APP_NAME = 'APP_NAME'
 
 log_file = None
 
@@ -39,7 +41,11 @@ def get_logger(name):
         log.setLevel(log_level)
 
         std_handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s %(levelname)s: (%(name)s) - %(message)s')
+        # formatter = logging.Formatter('%(asctime)s %(levelname)s: (%(name)s) - %(message)s')
+        app_name = os.environ.get(APP_NAME, '-')
+        formatter = logging.Formatter(f'<14>1 %(asctime)s.%(msecs)03dZ - {app_name} %(process)d - - %(levelname)s: (%(name)s) %(message)s',
+                                      "%Y-%m-%dT%H:%M:%S")
+        formatter.converter = time.gmtime
         std_handler.setFormatter(formatter)
         log.addHandler(std_handler)
 
@@ -68,7 +74,7 @@ def get_log_file():
         if not os.path.isdir(log_folder):
             os.makedirs(log_folder, exist_ok=True)
 
-        log_file_prefix = os.environ.get('BENTO_LOG_FILE_PREFIX', 'bento')
+        log_file_prefix = os.environ.get(LOG_PREFIX, 'bento')
         log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
         return log_file
     else:
