@@ -49,6 +49,23 @@ class S3Bucket:
         else:
             return True
 
+    def file_exists_on_s3(self, key):
+        '''
+        Check if file exists in S3, return True only if file exists
+
+        :param key: file path
+        :return: boolean
+        '''
+        try:
+            self.client.head_object(Bucket=self.bucket.name, Key=key)
+            return True
+        except ClientError as e:
+            if e.response['Error']['Code'] in ['404', '412']:
+                return False
+            else:
+                self.log.error('Unknown S3 client error!')
+                self.log.exception(e)
+
     def same_file_exists_on_s3(self, key, md5):
         '''
         Check if same file already exists in S3, return True only if file with same MD5 exists
