@@ -36,7 +36,7 @@ class SimpleCipher:
 
     def simple_cipher(self, data):
         '''
-        Use cipher_key in configuration to do Caesar Cipher
+        Use key given in constructor to do Caesar Cipher
 
         :param data: string to be ciphered, can only contain alphanumeric characters
         :return: ciphered string
@@ -44,3 +44,12 @@ class SimpleCipher:
         assert isinstance(data, str)
         return self._cipher(data, self.key)
 
+    def simple_decipher(self, data):
+        '''
+        Use key given in constructor to decode a Caesar Ciphered data
+
+        :param data: string to be deciphered, can only contain alphanumeric characters
+        :return: deciphered original string
+        '''
+        assert isinstance(data, str)
+        return self._cipher(data, -self.key)
