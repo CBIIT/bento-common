@@ -130,11 +130,34 @@ def send_slack_message(url, messaage, log):
 
 def get_hash(file_name, hash_obj):
     with open(file_name, 'rb') as afile:
-        buf = afile.read(BLOCK_SIZE)
-        while len(buf) > 0:
-            hash_obj.update(buf)
-            buf = afile.read(BLOCK_SIZE)
+        return get_stream_hash(afile, hash_obj)
+
+
+def get_stream_hash(stream, hash_obj):
+    '''
+    Get Hash from a stream, can be a local file or a stream returned by requests
+
+    :param stream: input stream
+    :param hash_obj: hash object e.g., MD5, Sha512
+    :return:
+    '''
+
+    buf = stream.read(BLOCK_SIZE)
+    while len(buf) > 0:
+        hash_obj.update(buf)
+        buf = stream.read(BLOCK_SIZE)
     return hash_obj
+
+
+def get_stream_md5(stream):
+    '''
+    Get MD5 of a stream content as a hex encoded string
+    :param stream:
+    :return: hex encoded MD5
+    '''
+    hash_obj = hashlib.md5()
+    hash = get_stream_hash(stream, hash_obj)
+    return hash.hexdigest()
 
 
 def get_md5_hex_n_base64(file_name):
