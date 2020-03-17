@@ -65,6 +65,7 @@ class S3Bucket:
             else:
                 self.log.error('Unknown S3 client error!')
                 self.log.exception(e)
+                return False
 
     def same_file_exists_on_s3(self, key, md5):
         '''
