@@ -82,7 +82,7 @@ class ICDC_Schema:
             for key, value in self.org_schema[RELATIONSHIPS].items():
                 # Assume all keys start with '_' are not regular nodes
                 if not key.startswith('_'):
-                    self.process_node(key, value)
+                    self.process_node(key, value, True)
                     self.num_relationship += self.process_edges(key, value)
 
     def get_uuid_for_node(self, node_type, signature):
@@ -119,10 +119,21 @@ class ICDC_Schema:
 
         return {PROPERTIES: props, REQUIRED: required, PRIVATE: private}
 
-    def process_node(self, name, desc):
+    def process_node(self, name, desc, isRelationship=False):
+        '''
+        Process input node/relationship properties and save it in self.nodes
+
+        :param name: node/relationship name
+        :param desc:
+        :param isRelationship: if input is a relationship
+        :return:
+        '''
         properties = self._process_properties(desc)
 
-        if properties[PROPERTIES]:
+
+        # All nodes and relationships that has properties will be save to self.nodes
+        # Relationship without properties will be ignored
+        if properties[PROPERTIES] or not isRelationship:
             self.nodes[name] = properties
 
     def process_edges(self, name, desc):
