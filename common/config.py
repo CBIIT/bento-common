@@ -31,17 +31,21 @@ class BentoConfig:
 
                 self.SLACK_URL = config.get('url')
 
-                self._create_backup_folder()
+                if self.BACKUP_FOLDER:
+                    self._create_folder(self.BACKUP_FOLDER)
+
+                if self.TEMP_FOLDER:
+                    self._create_folder(self.TEMP_FOLDER)
         else:
             msg = f'Can NOT open configuration file "{config_file}"!'
             self.log.error(msg)
             raise Exception(msg)
 
 
-    def _create_backup_folder(self):
-        os.makedirs(self.BACKUP_FOLDER, exist_ok=True)
-        if not os.path.isdir(self.BACKUP_FOLDER):
-            msg = f'{self.BACKUP_FOLDER} is not a folder!'
+    def _create_folder(self, folder):
+        os.makedirs(folder, exist_ok=True)
+        if not os.path.isdir(folder):
+            msg = f'{folder} is not a folder!'
             self.log.error(msg)
             raise Exception(msg)
 
