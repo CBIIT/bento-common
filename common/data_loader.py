@@ -71,7 +71,7 @@ class DataLoader:
             self.log.info('Cheat mode enabled, all validations skipped!')
             return True
 
-    def load(self, file_list, cheat_mode, dry_run, loading_mode, wipe_db, max_violations):
+    def load(self, file_list, cheat_mode, dry_run, loading_mode, wipe_db, max_violations, no_parents):
         if not self.check_files(file_list):
             return False
         start = timer()
@@ -102,7 +102,7 @@ class DataLoader:
                     self.wipe_db(tx)
 
                 for txt in file_list:
-                    self.load_nodes(tx, txt, loading_mode)
+                    self.load_nodes(tx, txt, loading_mode, no_parents)
                 if loading_mode != DELETE_MODE:
                     for txt in file_list:
                         self.load_relationships(tx, txt, loading_mode)
@@ -140,7 +140,7 @@ class DataLoader:
     # Add uuid to nodes if one not exists
     # Add parent id(s)
     # Add extra properties for "value with unit" properties
-    def prepare_node(self, node):
+    def prepare_node(self, node, no_parents):
         obj = self.cleanup_node(node)
 
         node_type = obj.get(NODE_TYPE, None)
@@ -201,7 +201,7 @@ class DataLoader:
         for key, value in obj.items():
             obj2[key] = value
             # Add parent id field(s) into node
-            if self.schema.is_parent_pointer(key):
+            if self.schema.is_parent_pointer(key) and not no_parents:
                 header = key.split('.')
                 if len(header) > 2:
                     self.log.warning('Column header "{}" has multiple periods!'.format(key))
@@ -227,7 +227,7 @@ class DataLoader:
         return '{{ {} }}'.format(', '.join(result))
 
     # Validate all cases exist in a data (TSV/TXT) file
-    def validate_cases_exist_in_file(self, file_name, max_violations):
+    def validate_cases_exist_in_file(self, file_name, max_violations, no_parents):
         if not self.driver or not isinstance(self.driver, Driver):
             self.log.error('Invalid Neo4j Python Driver!')
             return False
@@ -239,7 +239,7 @@ class DataLoader:
                 validation_failed = False
                 violations = 0
                 for org_obj in reader:
-                    obj = self.prepare_node(org_obj)
+                    obj = self.prepare_node(org_obj, no_parents)
                     line_num += 1
                     # Validate parent exist
                     if CASE_ID in obj:
@@ -255,7 +255,7 @@ class DataLoader:
                 return not validation_failed
 
     # Validate all parents exist in a data (TSV/TXT) file
-    def validate_parents_exist_in_file(self, file_name, max_violations):
+    def validate_parents_exist_in_file(self, file_name, max_violations, no_parents):
         validation_failed = True
         if not self.driver or not isinstance(self.driver, Driver):
             self.log.error('Invalid Neo4j Python Driver!')
@@ -269,7 +269,7 @@ class DataLoader:
                 violations = 0
                 for org_obj in reader:
                     line_num += 1
-                    obj = self.prepare_node(org_obj)
+                    obj = self.prepare_node(org_obj, no_parents)
                     results = self.collect_relationships(obj, session, False, line_num)
                     relationships = results[RELATIONSHIPS]
                     provided_parents = results[PROVIDED_PARENTS]
@@ -429,7 +429,7 @@ class DataLoader:
         return (nodes_deleted, relationship_deleted)
 
     # load file
-    def load_nodes(self, session, file_name, loading_mode):
+    def load_nodes(self, session, file_name, loading_mode, no_parents):
         if loading_mode == NEW_MODE:
             action_word = 'Loading new'
         elif loading_mode == UPSERT_MODE:
@@ -449,7 +449,7 @@ class DataLoader:
             line_num = 1
             for org_obj in reader:
                 line_num += 1
-                obj = self.prepare_node(org_obj)
+                obj = self.prepare_node(org_obj, no_parents)
                 node_type = obj[NODE_TYPE]
                 node_id = self.schema.get_id(obj)
                 if not node_id:
@@ -600,7 +600,7 @@ class DataLoader:
             line_num = 1
             for org_obj in reader:
                 line_num += 1
-                obj = self.prepare_node(org_obj)
+                obj = self.prepare_node(org_obj, False)
                 node_type = obj[NODE_TYPE]
                 results = self.collect_relationships(obj, session, True, line_num)
                 relationships = results[RELATIONSHIPS]
