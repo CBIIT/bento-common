@@ -13,29 +13,54 @@ class BentoConfig:
             with open(config_file) as c_file:
                 config = yaml.safe_load(c_file)['Config']
 
+                #################################
+                # Folders
+                self.temp_folder = config.get('temp_folder')
+                if self.temp_folder:
+                    self._create_folder(self.temp_folder)
+
+                self.backup_folder = config.get('backup_folder')
+                if self.backup_folder:
+                    self._create_folder(self.backup_folder)
+
+                #################################
+                # File-loader related
                 if 'sqs' in config:
                     sqs = config['sqs']
-                    self.QUEUE_LONG_PULL_TIME = sqs.get('long_pull_time')
-                    self.VISIBILITY_TIMEOUT = sqs.get('visibility_timeout')
+                    self.queue_long_pull_time = sqs.get('long_pull_time')
+                    self.visibility_timeout = sqs.get('visibility_timeout')
 
-                self.TEMP_FOLDER = config.get('temp_folder')
-                self.BACKUP_FOLDER = config.get('backup_folder')
                 if 'indexd' in config:
                     indexd = config['indexd']
-                    self.INDEXD_GUID_PREFIX = indexd.get('GUID_prefix')
-                    self.INDEXD_MANIFEST_EXT = indexd.get('ext')
-                    if self.INDEXD_MANIFEST_EXT and not self.INDEXD_MANIFEST_EXT.startswith('.'):
-                        self.INDEXD_MANIFEST_EXT = '.' + self.INDEXD_MANIFEST_EXT
+                    self.indexd_guid_prefix = indexd.get('GUID_prefix')
+                    self.indexd_manifest_ext = indexd.get('ext')
+                    if self.indexd_manifest_ext and not self.indexd_manifest_ext.startswith('.'):
+                        self.indexd_manifest_ext = '.' + self.indexd_manifest_ext
+                self.slack_url = config.get('url')
 
-                self.REL_PROP_DELIMITER = config.get('rel_prop_delimiter')
+                #################################
+                # Data-loader related
+                self.rel_prop_delimiter = config.get('rel_prop_delimiter')
+                if 'neo4j' in config:
+                    neo4j = config['neo4j']
+                    self.neo4j_uri = neo4j.get('uri')
+                    self.neo4j_user = neo4j.get('user')
+                    self.neo4j_password = neo4j.get('password')
 
-                self.SLACK_URL = config.get('url')
+                self.schema_files = config.get('schema')
+                self.prop_file = config.get('prop_file')
+                self.cheat_mode = config.get('cheat_mode')
+                self.dry_run = config.get('dry_run')
+                self.wipe_db = config.get('wipe_db')
+                self.no_backup = config.get('no_backup')
+                self.yes = config.get('no_confirmation')
+                self.max_violations = config.get('max_violations', 10)
+                self.s3_bucket = config.get('s3_bucket')
+                self.s3_folder = config.get('s3_folder')
+                self.loading_mode = config.get('loading_mode', 'UPSERT_MODE')
+                self.dataset = config.get('dataset')
 
-                if self.BACKUP_FOLDER:
-                    self._create_folder(self.BACKUP_FOLDER)
 
-                if self.TEMP_FOLDER:
-                    self._create_folder(self.TEMP_FOLDER)
         else:
             msg = f'Can NOT open configuration file "{config_file}"!'
             self.log.error(msg)
