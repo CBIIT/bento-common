@@ -27,6 +27,15 @@ class S3Bucket:
     def _upload_file_obj(self, key, data):
         return self.bucket.upload_fileobj(data, key, ExtraArgs={'ACL': BUCKET_OWNER_ACL})
 
+    def get_object_size(self, key):
+        try:
+            res = self.client.head_object(Bucket=self.bucket_name, Key=key)
+            return res['ContentLength']
+
+        except ClientError as e:
+            return None
+
+
     def download_file(self, key, filename):
         return self.bucket.download_file(key, filename)
 
