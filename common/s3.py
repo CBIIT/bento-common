@@ -24,8 +24,8 @@ class S3Bucket:
                                       ContentMD5=md5_base64,
                                       ACL= BUCKET_OWNER_ACL)
 
-    def _upload_file_obj(self, key, data):
-        return self.bucket.upload_fileobj(data, key, ExtraArgs={'ACL': BUCKET_OWNER_ACL})
+    def _upload_file_obj(self, key, data, config=None, extra_args={'ACL': BUCKET_OWNER_ACL}):
+        return self.bucket.upload_fileobj(data, key, ExtraArgs=extra_args, Config=config)
 
     def get_object_size(self, key):
         try:

@@ -210,6 +210,28 @@ def get_uuid(domain, node_type, signature):
     node_uuid = uuid.uuid5(type_uuid, signature)
     return str(node_uuid)
 
+def format_bytes(num):
+    '''
+    Return a properly formatted size string, with MB, GB, TB etc.
+    :param num: size in bytes
+    :return: properly formatted size string, with MB, GB, TB etc.
+    '''
+    # TB
+    TB = 1_000_000_000_000
+    GB = 1_000_000_000
+    MB = 1_000_000
+    KB = 1_000
+    if num > TB:
+        return f'{num / TB:,.2f} TB'
+    elif num > GB:
+        return f'{num / GB:,.2f} GB'
+    elif num > MB:
+        return f'{num / MB:,.2f} MB'
+    elif num > KB:
+        return f'{num / KB:,.2f} KB'
+    else:
+        return f'{num} Bytes'
+
 
 NODES_CREATED = 'nodes_created'
 RELATIONSHIP_CREATED = 'relationship_created'
