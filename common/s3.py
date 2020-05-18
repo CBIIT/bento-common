@@ -94,6 +94,9 @@ class S3Bucket:
                 self.log.error('Unknown S3 client error!')
                 self.log.exception(e)
 
+    def same_size_file_exists(self, key, file_size):
+        return file_size == self.get_object_size(key)
+
     def upload_file(self, key, file_name):
         with open(file_name, 'rb') as data:
             safer_key = remove_leading_slashes(key)
