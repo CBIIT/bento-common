@@ -14,6 +14,9 @@ NO_LOG = 'BENTO_NO_LOG'
 LOG_PREFIX = 'BENTO_LOG_FILE_PREFIX'
 APP_NAME = 'APP_NAME'
 
+LOG_ENV_VAR = 'BENTO_LOG_LEVEL'
+DEFAULT_LOG_LEVEL = 'DEBUG'
+
 log_file = None
 
 def get_logger(name):
@@ -37,7 +40,7 @@ def get_logger(name):
     '''
     log = logging.getLogger(name)
     if not log.handlers:
-        log_level = os.environ.get('BENTO_LOG_LEVEL', 'INFO')
+        log_level = os.environ.get(LOG_ENV_VAR, DEFAULT_LOG_LEVEL)
         log.setLevel(log_level)
 
         std_handler = logging.StreamHandler()
