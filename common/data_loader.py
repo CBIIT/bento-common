@@ -3,50 +3,48 @@
 import os
 from collections import deque
 import csv
-from datetime import datetime, timedelta
 import re
 from timeit import default_timer as timer
 
-from neo4j import  Driver, Session, Transaction
+from neo4j import  Driver
 
 from .icdc_schema import ICDC_Schema
-from .utils import DATE_FORMAT, get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
+from .utils import get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
     RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
     NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED
 
 NODE_TYPE = 'type'
-VISIT_NODE = 'visit'
-VISIT_ID = 'visit_id'
-VISIT_DATE = 'visit_date'
 PROP_TYPE = 'Type'
 PARENT_TYPE = 'parent_type'
 PARENT_ID_FIELD = 'parent_id_field'
 PARENT_ID = 'parent_id'
-START_DATE = 'date_of_cycle_start'
-END_DATE = 'date_of_cycle_end'
-OF_CYCLE = 'of_cycle'
-CYCLE_NODE = 'cycle'
 excluded_fields = {NODE_TYPE}
 CASE_NODE = 'case'
 CASE_ID = 'case_id'
-PREDATE = 7
-FOREVER = '9999-12-31'
-INFERRED = 'inferred'
 CREATED = 'created'
 UPDATED = 'updated'
 RELATIONSHIPS = 'relationships'
-VISITS_CREATED = 'visits_created'
+INT_NODE_CREATED = 'int_node_created'
 PROVIDED_PARENTS = 'provided_parents'
 RELATIONSHIP_PROPS = 'relationship_properties'
 
 class DataLoader:
-    def __init__(self, driver, schema):
+    def __init__(self, driver, schema, intermediate_node_creator=None):
         if not schema or not isinstance(schema, ICDC_Schema):
             raise Exception('Invalid ICDC_Schema object')
         self.log = get_logger('Data Loader')
         self.driver = driver
         self.schema = schema
         self.rel_prop_delimiter = self.schema.rel_prop_delimiter
+
+        if intermediate_node_creator:
+            if not hasattr(intermediate_node_creator, 'create_intermediate_node'):
+                raise ValueError('Invalide Intermediate node creator')
+            if not hasattr(intermediate_node_creator, 'nodes_stat'):
+                raise ValueError('Invalide Intermediate node creator')
+            if not hasattr(intermediate_node_creator, 'relationships_stat'):
+                raise ValueError('Invalide Intermediate node creator')
+        self.int_node_creator = intermediate_node_creator
 
     def check_files(self, file_list):
         if not file_list:
@@ -114,6 +112,11 @@ class DataLoader:
         end = timer()
 
         # Print statistics
+        if self.int_node_creator:
+            self.nodes_stat.update(self.int_node_creator.nodes_stat)
+            self.relationships_stat.update(self.int_node_creator.relationships_stat)
+            self.nodes_created += self.int_node_creator.nodes_created
+            self.relationships_created += self.int_node_creator.relationships_created
         for node in sorted(self.nodes_stat.keys()):
             count = self.nodes_stat[node]
             self.log.info('Node: (:{}) loaded: {}'.format(node, count))
@@ -490,10 +493,10 @@ class DataLoader:
             self.log.warning('More than one nodes found! ')
         return count >= 1
 
-    def collect_relationships(self, obj, session, create_visit, line_num):
+    def collect_relationships(self, obj, session, create_intermediate_node, line_num):
         node_type = obj[NODE_TYPE]
         relationships = []
-        visits_created = 0
+        int_node_created = 0
         provided_parents = 0
         relationship_properties = {}
         for key, value in obj.items():
@@ -507,14 +510,14 @@ class DataLoader:
                     self.log.error('Line: {}: Relationship not found!'.format(line_num))
                     raise Exception('Undefined relationship, abort loading!')
                 if not self.node_exists(session, other_node, other_id, value):
-                    if other_node == 'visit' and create_visit:
-                        if self.create_visit(session, line_num, other_node, value, obj):
-                            visits_created += 1
+                    if create_intermediate_node and self.int_node_creator:
+                        if self.int_node_creator.create_intermediate_node(session, line_num, other_node, value, obj):
+                            int_node_created += 1
                             relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,
                                                   RELATIONSHIP_TYPE: relationship_name, MULTIPLIER: multiplier})
                         else:
                             self.log.error(
-                                'Line: {}: Couldn\'t create {} node automatically!'.format(line_num, VISIT_NODE))
+                                'Line: {}: Couldn\'t create {} node automatically!'.format(line_num, other_node))
                     else:
                         self.log.warning(
                             'Line: {}: Parent node (:{} {{{}: "{}"}} not found in DB!'.format(line_num, other_node, other_id,
@@ -530,7 +533,8 @@ class DataLoader:
                 if rel_name not in relationship_properties:
                     relationship_properties[rel_name] = {}
                 relationship_properties[rel_name][prop_name] = value
-        return {RELATIONSHIPS: relationships, VISITS_CREATED: visits_created, PROVIDED_PARENTS: provided_parents, RELATIONSHIP_PROPS: relationship_properties}
+        return {RELATIONSHIPS: relationships, INT_NODE_CREATED: int_node_created, PROVIDED_PARENTS: provided_parents,
+                RELATIONSHIP_PROPS: relationship_properties}
 
     def parent_already_has_child(self, session, node_type, node, relationship_name, parent_type, parent_id_field, parent_id):
         statement = 'MATCH (n:{})-[r:{}]->(m:{} {{ {}: {{parent_id}} }}) return n'.format(node_type, relationship_name, parent_type, parent_id_field)
@@ -596,7 +600,7 @@ class DataLoader:
         with open(file_name) as in_file:
             reader = csv.DictReader(in_file, delimiter='\t')
             relationships_created = {}
-            visits_created = 0
+            int_nodes_created = 0
             line_num = 1
             for org_obj in reader:
                 line_num += 1
@@ -604,7 +608,7 @@ class DataLoader:
                 node_type = obj[NODE_TYPE]
                 results = self.collect_relationships(obj, session, True, line_num)
                 relationships = results[RELATIONSHIPS]
-                visits_created += results[VISITS_CREATED]
+                int_nodes_created += results[INT_NODE_CREATED]
                 provided_parents = results[PROVIDED_PARENTS]
                 relationship_props = results[RELATIONSHIP_PROPS]
                 if provided_parents > 0:
@@ -645,8 +649,8 @@ class DataLoader:
 
             for rel, count in relationships_created.items():
                 self.log.info('{} {} relationship(s) loaded'.format(count, rel))
-            if visits_created > 0:
-                self.log.info('{} (:{}) node(s) loaded'.format(visits_created, VISIT_NODE))
+            if int_nodes_created > 0:
+                self.log.info('{} intermediate node(s) loaded'.format(int_nodes_created))
 
         return True
 
@@ -658,115 +662,6 @@ class DataLoader:
             prop_stmts.append('r.{0} = {{{0}}}'.format(key))
         return prop_stmts
 
-    def create_visit(self, session, line_num, node_type, node_id, src):
-        if node_type != VISIT_NODE:
-            self.log.error("Line: {}: Can't create (:{}) node for type: '{}'".format(line_num, VISIT_NODE, node_type))
-            return False
-        if not node_id:
-            self.log.error("Line: {}: Can't create (:{}) node for id: '{}'".format(line_num, VISIT_NODE, node_id))
-            return False
-        if not src:
-            self.log.error("Line: {}: Can't create (:{}) node for empty object".format(line_num, VISIT_NODE))
-            return False
-        if not session or (not isinstance(session, Session) and not isinstance(session, Transaction)):
-            self.log.error("Neo4j session is not valid!")
-            return False
-        date_map = self.schema.props.visit_date_in_nodes
-        if NODE_TYPE not in src:
-            self.log.error('Line: {}: Given object doesn\'t have a "{}" field!'.format(line_num, NODE_TYPE))
-            return False
-        source_type = src[NODE_TYPE]
-        date = src[date_map[source_type]]
-        if not date:
-            self.log.error('Line: {}: Visit date is empty!'.format(line_num))
-            return False
-        if NODE_TYPE not in src:
-            self.log.error('Line: {}: Given object doesn\'t have a "{}" field!'.format(line_num, NODE_TYPE))
-            return False
-        statement = 'MERGE (v:{} {{ {}: {{node_id}}, {}: {{date}}, {}: true, {}: {{{}}} }})'.format(
-            VISIT_NODE, VISIT_ID, VISIT_DATE, INFERRED, UUID, UUID)
-        statement += ' ON CREATE SET v.{} = datetime()'.format(CREATED)
-        statement += ' ON MATCH SET v.{} = datetime()'.format(UPDATED)
-
-        result = session.run(statement, {"node_id": node_id, "date": date, UUID: self.schema.get_uuid_for_node(VISIT_NODE, node_id)})
-        if result:
-            count = result.summary().counters.nodes_created
-            self.nodes_created += count
-            self.nodes_stat[VISIT_NODE] = self.nodes_stat.get(VISIT_NODE, 0) + count
-            if count > 0:
-                case_id = src[CASE_ID]
-                if not self.connect_visit_to_cycle(session, line_num, node_id, case_id, date):
-                    self.log.error('Line: {}: Visit: "{}" does NOT belong to a cycle!'.format(line_num, node_id))
-                return True
-        else:
-            return False
-
-    def connect_visit_to_cycle(self, session, line_num, visit_id, case_id, visit_date):
-        find_cycles_stmt = 'MATCH (c:cycle) WHERE c.case_id = {case_id} RETURN c ORDER BY c.date_of_cycle_start'
-        result = session.run(find_cycles_stmt, {'case_id': case_id})
-        if result:
-            first_date = None
-            pre_date = None
-            relationship_name = self.schema.get_relationship(VISIT_NODE, CYCLE_NODE)[RELATIONSHIP_TYPE]
-            if not relationship_name:
-                return False
-            for record in result.records():
-                cycle = record.data()['c']
-                date = datetime.strptime(visit_date, DATE_FORMAT)
-                start_date = datetime.strptime(cycle[START_DATE], DATE_FORMAT)
-                if not first_date:
-                    first_date = start_date
-                    pre_date = first_date - timedelta(days=PREDATE)
-                if cycle[END_DATE]:
-                    end_date = datetime.strptime(cycle[END_DATE], DATE_FORMAT)
-                else:
-                    self.log.warning('Line: {}: No end dates for cycle started on {} for {}'.format(line_num, start_date.strftime(DATE_FORMAT), case_id))
-                    end_date = datetime.strptime(FOREVER, DATE_FORMAT)
-                if (date >= start_date and date <= end_date) or (date < first_date and date >= pre_date):
-                    if date < first_date and date >= pre_date:
-                        self.log.info('Line: {}: Date: {} is before first cycle, but within {}'.format(line_num, visit_date, PREDATE)
-                                    + ' days before first cycle started: {}, connected to first cycle'.format(first_date.strftime(DATE_FORMAT)))
-                    cycle_id = cycle.id
-                    connect_stmt = 'MATCH (v:{} {{ {}: {{visit_id}} }}) '.format(VISIT_NODE, VISIT_ID)
-                    connect_stmt += 'MATCH (c:{}) WHERE id(c) = {{cycle_id}} '.format(CYCLE_NODE)
-                    connect_stmt += 'MERGE (v)-[r:{} {{ {}: true }}]->(c)'.format(relationship_name, INFERRED)
-                    connect_stmt += ' ON CREATE SET r.{} = datetime()'.format(CREATED)
-                    connect_stmt += ' ON MATCH SET r.{} = datetime()'.format(UPDATED)
-
-                    cnt_result = session.run(connect_stmt, {'visit_id': visit_id, 'cycle_id': cycle_id})
-                    relationship_created = cnt_result.summary().counters.relationships_created
-                    if relationship_created > 0:
-                        self.relationships_created += relationship_created
-                        self.relationships_stat[relationship_name] = self.relationships_stat.get(relationship_name, 0) + relationship_created
-                        return True
-                    else:
-                        self.log.error('Line: {}: Create (:visit)-[:of_cycle]->(:cycle) relationship failed!'.format(line_num))
-                        return False
-            self.log.warning('Line: {}: Date: {} does not belong to any cycles, connected to case {} directly!'.format(
-                    line_num, visit_date, case_id))
-            return self.connect_visit_to_case(session, line_num, visit_id, case_id)
-        else:
-            self.log.error('Line: {}: No cycles found for case: {}'.format(line_num, case_id))
-            return False
-
-    def connect_visit_to_case(self, session, line_num, visit_id, case_id):
-        relationship_name = self.schema.get_relationship(VISIT_NODE, CASE_NODE)[RELATIONSHIP_TYPE]
-        if not relationship_name:
-            return False
-        cnt_statement = 'MATCH (c:case {{ case_id: {{case_id}} }}) MATCH (v:visit {{ {}: {{visit_id}} }}) '.format(VISIT_ID)
-        cnt_statement += 'MERGE (c)<-[r:{} {{ {}: true }}]-(v)'.format(relationship_name, INFERRED)
-        cnt_statement += ' ON CREATE SET r.{} = datetime()'.format(CREATED)
-        cnt_statement += ' ON MATCH SET r.{} = datetime()'.format(UPDATED)
-
-        result = session.run(cnt_statement, {'case_id': case_id, 'visit_id': visit_id})
-        relationship_created = result.summary().counters.relationships_created
-        if relationship_created > 0:
-            self.relationships_created += relationship_created
-            self.relationships_stat[relationship_name] = self.relationships_stat.get(relationship_name, 0) + relationship_created
-            return True
-        else:
-            self.log.error('Line: {}: Create (:{})-[:{}]->(:{}) relationship failed!'.format(line_num, VISIT_NODE, relationship_name, CASE_NODE))
-            return False
 
     def wipe_db(self, session):
         cleanup_db = 'MATCH (n) DETACH DELETE n'
