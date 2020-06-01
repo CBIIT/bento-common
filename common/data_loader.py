@@ -11,7 +11,7 @@ from neo4j import  Driver
 from .icdc_schema import ICDC_Schema
 from .utils import get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
     RELATIONSHIP_TYPE, MULTIPLIER, ONE_TO_ONE, DEFAULT_MULTIPLIER, UPSERT_MODE, \
-    NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED
+    NEW_MODE, DELETE_MODE, NODES_DELETED, RELATIONSHIP_DELETED, combined_dict_counters
 
 NODE_TYPE = 'type'
 PROP_TYPE = 'Type'
@@ -113,8 +113,8 @@ class DataLoader:
 
         # Print statistics
         if self.int_node_creator:
-            self.nodes_stat.update(self.int_node_creator.nodes_stat)
-            self.relationships_stat.update(self.int_node_creator.relationships_stat)
+            combined_dict_counters(self.nodes_stat, self.int_node_creator.nodes_stat)
+            combined_dict_counters(self.relationships_stat, self.int_node_creator.relationships_stat)
             self.nodes_created += self.int_node_creator.nodes_created
             self.relationships_created += self.int_node_creator.relationships_created
         for node in sorted(self.nodes_stat.keys()):

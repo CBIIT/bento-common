@@ -235,6 +235,20 @@ def format_bytes(num):
     else:
         return f'{num} Bytes'
 
+def combined_dict_counters(counter, other):
+    """
+    Combine second dict into first, if same key exists in first dict, then count will be the sum of the two
+    Both dicts must be in { key1: count1, key2: count2 } form, countx must be an integer!
+
+    :return: None, combined dict is stored in first dict
+    """
+    for key, value in other.items():
+        if key in counter:
+            counter[key] += value
+        else:
+            counter[key] = value
+
+
 
 NODES_CREATED = 'nodes_created'
 RELATIONSHIP_CREATED = 'relationship_created'
