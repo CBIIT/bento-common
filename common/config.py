@@ -59,6 +59,7 @@ class BentoConfig:
                 self.s3_folder = config.get('s3_folder')
                 self.loading_mode = config.get('loading_mode', 'UPSERT_MODE')
                 self.dataset = config.get('dataset')
+                self.no_parents = config.get('no_parents')
 
 
         else:
