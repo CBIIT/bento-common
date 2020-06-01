@@ -8,7 +8,7 @@ import yaml
 from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, DATE_FORMAT, get_uuid
 from .props import Props
 
-NODES = 'Nodes'
+NODES = 'Nodes' 
 RELATIONSHIPS = 'Relationships'
 PROPERTIES = 'Props'
 PROP_DEFINITIONS = 'PropDefinitions'
@@ -31,7 +31,6 @@ MIN = 'minimum'
 MAX = 'maximum'
 EX_MIN = 'exclusiveMinimum'
 EX_MAX = 'exclusiveMaximum'
-
 
 
 class ICDC_Schema:
@@ -130,7 +129,6 @@ class ICDC_Schema:
         '''
         properties = self._process_properties(desc)
 
-
         # All nodes and relationships that has properties will be save to self.nodes
         # Relationship without properties will be ignored
         if properties[PROPERTIES] or not isRelationship:
@@ -147,17 +145,19 @@ class ICDC_Schema:
         self.relationship_props[name] = properties
 
         if END_POINTS in desc:
-            for  end_points in desc[END_POINTS]:
+            for end_points in desc[END_POINTS]:
                 src = end_points[SRC]
                 dest = end_points[DEST]
                 if MULTIPLIER in end_points:
                     actual_multiplier = end_points[MULTIPLIER]
-                    self.log.debug('End point multiplier: "{}" overriding relationship multiplier: "{}"'.format(actual_multiplier, multiplier))
+                    self.log.debug(
+                        'End point multiplier: "{}" overriding relationship multiplier: "{}"'.format(actual_multiplier,
+                                                                                                     multiplier))
                 else:
                     actual_multiplier = multiplier
                 if src not in self.relationships:
                     self.relationships[src] = {}
-                self.relationships[src][dest] = { RELATIONSHIP_TYPE: name, MULTIPLIER: actual_multiplier }
+                self.relationships[src][dest] = {RELATIONSHIP_TYPE: name, MULTIPLIER: actual_multiplier}
 
                 count += 1
                 if src in self.nodes:
@@ -178,25 +178,33 @@ class ICDC_Schema:
         node = self.nodes[name]
         if multiplier == 'many_to_one':
             if dest:
-                node[PROPERTIES][self.plural(otherNode)] = { PROP_TYPE: '[{}] @relation(name:"{}", direction:IN)'.format(otherNode, relationship) }
+                node[PROPERTIES][self.plural(otherNode)] = {
+                    PROP_TYPE: '[{}] @relation(name:"{}", direction:IN)'.format(otherNode, relationship)}
             else:
-                node[PROPERTIES][otherNode] = {PROP_TYPE: '{} @relation(name:"{}", direction:OUT)'.format(otherNode, relationship) }
+                node[PROPERTIES][otherNode] = {
+                    PROP_TYPE: '{} @relation(name:"{}", direction:OUT)'.format(otherNode, relationship)}
         elif multiplier == 'one_to_one':
             if relationship == NEXT_RELATIONSHIP:
                 if dest:
-                    node[PROPERTIES]['prior_' + otherNode] = {PROP_TYPE: '{} @relation(name:"{}", direction:IN)'.format(otherNode, relationship) }
+                    node[PROPERTIES]['prior_' + otherNode] = {
+                        PROP_TYPE: '{} @relation(name:"{}", direction:IN)'.format(otherNode, relationship)}
                 else:
-                    node[PROPERTIES]['next_' + otherNode] = {PROP_TYPE: '{} @relation(name:"{}", direction:OUT)'.format(otherNode, relationship) }
+                    node[PROPERTIES]['next_' + otherNode] = {
+                        PROP_TYPE: '{} @relation(name:"{}", direction:OUT)'.format(otherNode, relationship)}
             else:
                 if dest:
-                    node[PROPERTIES][otherNode] = {PROP_TYPE: '{} @relation(name:"{}", direction:IN)'.format(otherNode, relationship) }
+                    node[PROPERTIES][otherNode] = {
+                        PROP_TYPE: '{} @relation(name:"{}", direction:IN)'.format(otherNode, relationship)}
                 else:
-                    node[PROPERTIES][otherNode] = {PROP_TYPE: '{} @relation(name:"{}", direction:OUT)'.format(otherNode, relationship) }
+                    node[PROPERTIES][otherNode] = {
+                        PROP_TYPE: '{} @relation(name:"{}", direction:OUT)'.format(otherNode, relationship)}
         elif multiplier == 'many_to_many':
             if dest:
-                node[PROPERTIES][self.plural(otherNode)] = {PROP_TYPE: '[{}] @relation(name:"{}", direction:IN)'.format(otherNode, relationship) }
+                node[PROPERTIES][self.plural(otherNode)] = {
+                    PROP_TYPE: '[{}] @relation(name:"{}", direction:IN)'.format(otherNode, relationship)}
             else:
-                node[PROPERTIES][self.plural(otherNode)] = {PROP_TYPE: '[{}] @relation(name:"{}", direction:OUT)'.format(otherNode, relationship) }
+                node[PROPERTIES][self.plural(otherNode)] = {
+                    PROP_TYPE: '[{}] @relation(name:"{}", direction:OUT)'.format(otherNode, relationship)}
         else:
             self.log.warning('Unsupported relationship multiplier: "{}"'.format(multiplier))
 
@@ -215,14 +223,14 @@ class ICDC_Schema:
         return result
 
     def get_prop_type(self, node_type, prop):
-        if node_type in  self.nodes:
+        if node_type in self.nodes:
             node = self.nodes[node_type]
             if prop in node[PROPERTIES]:
                 return node[PROPERTIES][prop][PROP_TYPE]
         return DEFAULT_TYPE
 
     def get_type(self, name):
-        result = { PROP_TYPE: DEFAULT_TYPE }
+        result = {PROP_TYPE: DEFAULT_TYPE}
         if name in self.org_schema[PROP_DEFINITIONS]:
             prop = self.org_schema[PROP_DEFINITIONS][name]
             if PROP_TYPE in prop:
@@ -427,7 +435,7 @@ class ICDC_Schema:
             if not isinstance(str_value, dict):
                 return False
         elif model_type[PROP_TYPE] == 'String':
-            if  ENUM in model_type:
+            if ENUM in model_type:
                 if not isinstance(str_value, str):
                     return False
                 if str_value != '' and str_value not in model_type[ENUM]:
@@ -474,7 +482,6 @@ class ICDC_Schema:
         else:
             self.log.error('Couldn\'t find any relationship from (:{})'.format(src))
         return None
-
 
     # Get type info from description
     def map_type(self, type_name):
@@ -550,7 +557,5 @@ class ICDC_Schema:
     def is_relationship_property(self, key):
         return re.match(r'^.+\{}.+$'.format(self.rel_prop_delimiter), key)
 
-
     def is_parent_pointer(self, field_name):
         return re.fullmatch(r'\w+\.\w+', field_name) is not None
-
