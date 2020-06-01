@@ -8,7 +8,7 @@ import yaml
 from .utils import get_logger, MULTIPLIER, DEFAULT_MULTIPLIER, RELATIONSHIP_TYPE, DATE_FORMAT, get_uuid
 from .props import Props
 
-NODES = 'Nodes' 
+NODES = 'Nodes'
 RELATIONSHIPS = 'Relationships'
 PROPERTIES = 'Props'
 PROP_DEFINITIONS = 'PropDefinitions'
@@ -31,6 +31,7 @@ MIN = 'minimum'
 MAX = 'maximum'
 EX_MIN = 'exclusiveMinimum'
 EX_MAX = 'exclusiveMaximum'
+
 
 
 class ICDC_Schema:
