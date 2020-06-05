@@ -513,7 +513,7 @@ class DataLoader:
                     self.log.error('Line: {}: Relationship not found!'.format(line_num))
                     raise Exception('Undefined relationship, abort loading!')
                 if not self.node_exists(session, other_node, other_id, value):
-                    if create_intermediate_node and self.int_node_creator:
+                    if create_intermediate_node and self.int_node_creator and self.int_node_creator.is_valid_int_node(other_node):
                         if self.int_node_creator.create_intermediate_node(session, line_num, other_node, value, obj):
                             int_node_created += 1
                             relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,

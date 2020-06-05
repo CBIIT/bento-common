@@ -37,10 +37,13 @@ class VisitCreator:
         self.nodes_stat = {}
         self.relationships_stat = {}
 
+    def is_valid_int_node(self, node_type):
+        return node_type == VISIT_NODE
+
     def create_intermediate_node(self, session, line_num, node_type, node_id, src):
         if node_type != VISIT_NODE:
             self.log.debug("Line: {}: Won't create node for type: '{}'".format(line_num, VISIT_NODE, node_type))
-            return True
+            return False
         if not node_id:
             self.log.error("Line: {}: Can't create (:{}) node for id: '{}'".format(line_num, VISIT_NODE, node_id))
             return False
