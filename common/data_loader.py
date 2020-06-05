@@ -504,6 +504,9 @@ class DataLoader:
                 provided_parents += 1
                 other_node, other_id = key.split('.')
                 relationship = self.schema.get_relationship(node_type, other_node)
+                if not isinstance(relationship, dict):
+                    self.log.error('Line: {}: Relationship not found!'.format(line_num))
+                    raise Exception('Undefined relationship, abort loading!')
                 relationship_name = relationship[RELATIONSHIP_TYPE]
                 multiplier = relationship[MULTIPLIER]
                 if not relationship_name:
