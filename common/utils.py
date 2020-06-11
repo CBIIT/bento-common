@@ -248,6 +248,8 @@ def combined_dict_counters(counter, other):
         else:
             counter[key] = value
 
+def get_file_format(file_name):
+    return os.path.splitext(file_name)[1].split('.')[1].lower()
 
 
 NODES_CREATED = 'nodes_created'
