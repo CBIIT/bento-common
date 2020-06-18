@@ -13,6 +13,7 @@ CYCLE_NODE = 'cycle'
 INFERRED = 'inferred'
 START_DATE = 'date_of_cycle_start'
 END_DATE = 'date_of_cycle_end'
+CYCLE_ID = 'cycle_id'
 
 PREDATE = 7
 FOREVER = '9999-12-31'
@@ -36,6 +37,8 @@ class VisitCreator:
         self.relationships_created = 0
         self.nodes_stat = {}
         self.relationships_stat = {}
+        # Dictionary to cache case IDs and their associated cycles in order to prevent redundant querying
+        self.cycle_map = {}
 
     def is_valid_int_node(self, node_type):
         return node_type == VISIT_NODE
@@ -85,44 +88,65 @@ class VisitCreator:
             return False
 
     def connect_visit_to_cycle(self, session, line_num, visit_id, case_id, visit_date):
-        find_cycles_stmt = 'MATCH (c:cycle) WHERE c.case_id = {case_id} RETURN c ORDER BY c.date_of_cycle_start'
-        result = session.run(find_cycles_stmt, {'case_id': case_id})
-        if result:
+        cycle_data_array = []
+        if case_id not in self.cycle_map:
+            find_cycles_stmt = 'MATCH (c:cycle) WHERE c.case_id = {case_id} RETURN c ORDER BY c.date_of_cycle_start'
+            result = session.run(find_cycles_stmt, {'case_id': case_id})
+            if result:
+                # Iterates through each record in the result
+                for record in result.records():
+                    # Retreives the cycle object from the record
+                    cycle = record.data()['c']
+                    # Stores the relevant cycle data in a dictionary
+                    formatted_start_date = datetime.strptime(cycle[START_DATE], DATE_FORMAT)
+                    formatted_end_date = None
+                    if cycle[END_DATE]:
+                        formatted_end_date = datetime.strptime(cycle[END_DATE], DATE_FORMAT)
+                    cycle_data = {
+                        START_DATE: formatted_start_date,
+                        END_DATE: formatted_end_date,
+                        CYCLE_ID: cycle.id
+                    }
+                    # Adds the dictionary to an array for storage
+                    cycle_data_array.append(cycle_data)
+                    # The array of cycle data dictionaries is added to the cycle map
+                    self.cycle_map[case_id] = cycle_data_array
+        else:
+            cycle_data_array = self.cycle_map[case_id]
+        if len(cycle_data_array) > 0:
             first_date = None
             pre_date = None
             relationship_name = self.schema.get_relationship(VISIT_NODE, CYCLE_NODE)[RELATIONSHIP_TYPE]
             if not relationship_name:
                 return False
-            for record in result.records():
-                cycle = record.data()['c']
+            for cycle_data in cycle_data_array:
                 date = datetime.strptime(visit_date, DATE_FORMAT)
-                start_date = datetime.strptime(cycle[START_DATE], DATE_FORMAT)
+                start_date = cycle_data[START_DATE]
                 if not first_date:
                     first_date = start_date
                     pre_date = first_date - timedelta(days=PREDATE)
-                if cycle[END_DATE]:
-                    end_date = datetime.strptime(cycle[END_DATE], DATE_FORMAT)
+                if cycle_data[END_DATE]:
+                    end_date = cycle_data[END_DATE]
                 else:
                     self.log.warning('Line: {}: No end dates for cycle started on {} for {}'.format(line_num,
                                                                                                     start_date.strftime(
                                                                                                         DATE_FORMAT),
                                                                                                     case_id))
                     end_date = datetime.strptime(FOREVER, DATE_FORMAT)
-                if (date >= start_date and date <= end_date) or (date < first_date and date >= pre_date):
-                    if date < first_date and date >= pre_date:
+                if (start_date <= date <= end_date) or (first_date > date >= pre_date):
+                    if first_date > date >= pre_date:
                         self.log.info(
                             'Line: {}: Date: {} is before first cycle, but within {}'.format(line_num, visit_date,
                                                                                              PREDATE)
                             + ' days before first cycle started: {}, connected to first cycle'.format(
                                 first_date.strftime(DATE_FORMAT)))
-                    cycle_id = cycle.id
                     connect_stmt = 'MATCH (v:{} {{ {}: {{visit_id}} }}) '.format(VISIT_NODE, VISIT_ID)
                     connect_stmt += 'MATCH (c:{}) WHERE id(c) = {{cycle_id}} '.format(CYCLE_NODE)
                     connect_stmt += 'MERGE (v)-[r:{} {{ {}: true }}]->(c)'.format(relationship_name, INFERRED)
                     connect_stmt += ' ON CREATE SET r.{} = datetime()'.format(CREATED)
                     connect_stmt += ' ON MATCH SET r.{} = datetime()'.format(UPDATED)
 
-                    cnt_result = session.run(connect_stmt, {'visit_id': visit_id, 'cycle_id': cycle_id})
+                    cnt_result = session.run(connect_stmt, {'visit_id': visit_id, 'cycle_id': cycle_data[CYCLE_ID]})
                     relationship_created = cnt_result.summary().counters.relationships_created
                     if relationship_created > 0:
                         self.relationships_created += relationship_created

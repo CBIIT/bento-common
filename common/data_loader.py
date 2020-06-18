@@ -668,9 +668,10 @@ class DataLoader:
 
     def wipe_db(self, session):
         cleanup_db = 'MATCH (n) DETACH DELETE n'
-
-        result = session.run(cleanup_db)
-        self.log.info('{} nodes deleted!'.format(result.summary().counters.nodes_deleted))
-        self.log.info('{} relationships deleted!'.format(result.summary().counters.relationships_deleted))
+        result = session.run(cleanup_db).summary()
+        self.nodes_deleted = result.counters.nodes_deleted
+        self.relationships_deleted = result.counters.relationships_deleted
+        self.log.info('{} nodes deleted!'.format(self.nodes_deleted))
+        self.log.info('{} relationships deleted!'.format(self.relationships_deleted))
 
 
