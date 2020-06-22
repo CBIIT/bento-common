@@ -6,9 +6,11 @@ import os
 import re
 import time
 from urllib.parse import urlparse
+import shutil
 import uuid
 
-from requests import post
+from requests import post, get
+
 
 NO_LOG = 'BENTO_NO_LOG'
 LOG_PREFIX = 'BENTO_LOG_FILE_PREFIX'
@@ -250,6 +252,14 @@ def combined_dict_counters(counter, other):
 
 def get_file_format(file_name):
     return os.path.splitext(file_name)[1].split('.')[1].lower()
+
+def stream_download(url, local_file):
+    with get(url, stream=True) as r:
+        if not r.ok:
+            raise Exception(f'Http Error Code {r.status_code} for file {url}')
+
+        with open(local_file, 'wb') as file:
+            shutil.copyfileobj(r.raw, file)
 
 
 NODES_CREATED = 'nodes_created'
