@@ -109,8 +109,8 @@ class VisitCreator:
                     }
                     # Adds the dictionary to an array for storage
                     cycle_data_array.append(cycle_data)
-                    # The array of cycle data dictionaries is added to the cycle map
-                    self.cycle_map[case_id] = cycle_data_array
+                # The array of cycle data dictionaries is added to the cycle map
+                self.cycle_map[case_id] = cycle_data_array
         else:
             cycle_data_array = self.cycle_map[case_id]
         if len(cycle_data_array) > 0:
