@@ -212,7 +212,7 @@ class DataLoader:
                 parent = header[0]
                 combined = '{}_{}'.format(parent, field_name)
                 if field_name in obj:
-                    self.log.warning('"{}" field is in both current node and parent "{}", use {} instead !'.format(key, parent, combined))
+                    self.log.debug('"{}" field is in both current node and parent "{}", use {} instead !'.format(key, parent, combined))
                     field_name = combined
                 # Add an value for parent id
                 obj2[field_name] = value
