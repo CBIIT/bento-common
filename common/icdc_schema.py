@@ -42,6 +42,7 @@ class ICDC_Schema:
 
         if not yaml_files:
             raise Exception('File list is empty, couldn\'t initialize ICDC_Schema object!')
+            sys.exit(1)
         else:
             for data_file in yaml_files:
                 if not os.path.isfile(data_file):
@@ -105,7 +106,7 @@ class ICDC_Schema:
         props = {}
         required = set()
         private = set()
-        if desc[PROPERTIES]:
+        if PROPERTIES in desc and desc[PROPERTIES] is not None:
             for prop in desc[PROPERTIES]:
                 prop_type = self.get_type(prop)
                 props[prop] = prop_type
