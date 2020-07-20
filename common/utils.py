@@ -46,7 +46,7 @@ def get_logger(name):
         log.setLevel(log_level)
 
         std_handler = logging.StreamHandler()
-        # formatter = logging.Formatter('%(asctime)s %(levelname)s: (%(name)s) - %(message)s')
+        std_handler.setLevel('INFO')
         app_name = os.environ.get(APP_NAME, '-')
         formatter = logging.Formatter(f'<14>1 %(asctime)s.%(msecs)03dZ - {app_name} %(process)d - - %(levelname)s: (%(name)s) %(message)s',
                                       "%Y-%m-%dT%H:%M:%S")
