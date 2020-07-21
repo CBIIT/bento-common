@@ -93,7 +93,21 @@ class DataLoader:
         if not self.driver or not isinstance(self.driver, Driver):
             self.log.error('Invalid Neo4j Python Driver!')
             return False
+        # Data updates and schema related updates cannot be performed in the same session so multiple will be created
+        # Create new session for schema related updates (index creation)
         with self.driver.session() as session:
+            tx = session.begin_transaction()
+            try:
+                self.create_indexes(tx)
+                tx.commit()
+            except Exception as e:
+                tx.rollback()
+                self.log.exception(e)
+                return False
+
+        # Create new session for data updates
+        with self.driver.session() as session:
+            #Data updates transaction
             tx = session.begin_transaction()
             try:
                 if wipe_db:
@@ -674,4 +688,20 @@ class DataLoader:
         self.log.info('{} nodes deleted!'.format(self.nodes_deleted))
         self.log.info('{} relationships deleted!'.format(self.relationships_deleted))
 
+    def create_indexes(self, session):
+        existing = self.get_indexes(session)
+        id_dictionary = self.schema.props.id_fields
+        for node_name in id_dictionary:
+            if node_name not in existing:
+                command = "CREATE INDEX ON :{}({});".format(node_name, id_dictionary[node_name])
+                session.run(command)
+                self.log.info("Index created for \"{}\" on property \"{}\"".format(node_name, id_dictionary[node_name]))
+
+    def get_indexes(self, session):
+        command = "call db.indexes()"
+        result = session.run(command)
+        output = []
+        for r in result:
+            output.append(r["tokenNames"][0])
+        return output
 
