@@ -28,6 +28,36 @@ INT_NODE_CREATED = 'int_node_created'
 PROVIDED_PARENTS = 'provided_parents'
 RELATIONSHIP_PROPS = 'relationship_properties'
 
+
+def get_indexes(session):
+    """
+    Queries the database to get all existing indexes
+
+    :param session: the current neo4j transaction session
+    :return: A set of tuples representing all existing indexes in the database
+    """
+    command = "call db.indexes()"
+    result = session.run(command)
+    indexes = set()
+    for r in result:
+        indexes.add(format_as_tuple(r["tokenNames"][0], r["properties"]))
+    return indexes
+
+
+def format_as_tuple(node_name, properties):
+    """
+    Format index info as a tuple
+
+    :param node_name: The name of the node type for the index
+    :param properties: The list of node properties being used by the index
+    :return: A tuple containing the index node_name followed by the index properties in alphabetical order
+    """
+    if isinstance(properties, str):
+        properties = [properties]
+    lst = [node_name] + sorted(properties)
+    return tuple(lst)
+
+
 class DataLoader:
     def __init__(self, driver, schema, intermediate_node_creator=None):
         if not schema or not isinstance(schema, ICDC_Schema):
@@ -84,6 +114,7 @@ class DataLoader:
 
         self.nodes_created = 0
         self.relationships_created = 0
+        self.indexes_created = 0
         self.nodes_deleted = 0
         self.relationships_deleted = 0
         self.nodes_stat = {}
@@ -107,7 +138,7 @@ class DataLoader:
 
         # Create new session for data updates
         with self.driver.session() as session:
-            #Data updates transaction
+            # Data updates transaction
             tx = session.begin_transaction()
             try:
                 if wipe_db:
@@ -137,6 +168,7 @@ class DataLoader:
         for rel in sorted(self.relationships_stat.keys()):
             count = self.relationships_stat[rel]
             self.log.info('Relationship: [:{}] loaded: {}'.format(rel, count))
+        self.log.info('{} new indexes created!'.format(self.indexes_created))
         self.log.info('{} nodes and {} relationships loaded!'.format(self.nodes_created, self.relationships_created))
         self.log.info('{} nodes and {} relationships deleted!'.format(self.nodes_deleted, self.relationships_deleted))
         self.log.info('Loading time: {:.2f} seconds'.format(end - start))  # Time in seconds, e.g. 5.38091952400282
@@ -689,19 +721,28 @@ class DataLoader:
         self.log.info('{} relationships deleted!'.format(self.relationships_deleted))
 
     def create_indexes(self, session):
-        existing = self.get_indexes(session)
-        id_dictionary = self.schema.props.id_fields
-        for node_name in id_dictionary:
-            if node_name not in existing:
-                command = "CREATE INDEX ON :{}({});".format(node_name, id_dictionary[node_name])
-                session.run(command)
-                self.log.info("Index created for \"{}\" on property \"{}\"".format(node_name, id_dictionary[node_name]))
+        """
+        Creates indexes, if they do not already exist, for all entries in the "id_fields" and "indexes" sections of the
+        properties file
 
-    def get_indexes(self, session):
-        command = "call db.indexes()"
-        result = session.run(command)
-        output = []
-        for r in result:
-            output.append(r["tokenNames"][0])
-        return output
+        :param session: the current neo4j transaction session
+        """
+        existing = get_indexes(session)
+        # Create indexes from "id_fields" section of the properties file
+        ids = self.schema.props.id_fields
+        for node_name in ids:
+            self.create_index(node_name, ids[node_name], existing, session)
+        # Create indexes from "indexes" section of the properties file
+        indexes = self.schema.props.indexes
+        for index in indexes:
+            self.create_index(index["node"], index["property"], existing, session)
+
+    def create_index(self, node_name, node_property, existing, session):
+        index_tuple = format_as_tuple(node_name, node_property)
+        if index_tuple not in existing:
+            command = "CREATE INDEX ON :{}({});".format(node_name, node_property)
+            session.run(command)
+            self.indexes_created += 1
+            self.log.info("Index created for \"{}\" on property \"{}\"".format(node_name, node_property))
+
 
