@@ -6,7 +6,7 @@ import csv
 import re
 from timeit import default_timer as timer
 
-from neo4j import  Driver
+from neo4j import Driver
 
 from .icdc_schema import ICDC_Schema
 from .utils import get_logger, NODES_CREATED, RELATIONSHIP_CREATED, UUID, \
@@ -99,7 +99,8 @@ class DataLoader:
             self.log.info('Cheat mode enabled, all validations skipped!')
             return True
 
-    def load(self, file_list, cheat_mode, dry_run, loading_mode, wipe_db, max_violations, no_parents):
+    def load(self, file_list, cheat_mode, dry_run, loading_mode, wipe_db, max_violations, no_parents,
+             split=False):
         if not self.check_files(file_list):
             return False
         start = timer()
@@ -135,25 +136,54 @@ class DataLoader:
                 tx.rollback()
                 self.log.exception(e)
                 return False
-
-        # Create new session for data updates
+        # Create new session for data related updates
         with self.driver.session() as session:
-            # Data updates transaction
-            tx = session.begin_transaction()
-            try:
+            # Split Transactions enabled
+            if split:
                 if wipe_db:
-                    self.wipe_db(tx)
-
+                    try:
+                        self.wipe_db_split(session)
+                    except Exception as e:
+                        # Exception already logged
+                        return False
                 for txt in file_list:
-                    self.load_nodes(tx, txt, loading_mode, no_parents)
+                    tx = session.begin_transaction()
+                    try:
+                        self.load_nodes(tx, txt, loading_mode, no_parents)
+                        tx.commit()
+                    except Exception as e:
+                        tx.rollback()
+                        self.log.exception(e)
+                        return False
                 if loading_mode != DELETE_MODE:
                     for txt in file_list:
-                        self.load_relationships(tx, txt, loading_mode)
-                tx.commit()
-            except Exception as e:
-                tx.rollback()
-                self.log.exception(e)
-                return False
+                            tx = session.begin_transaction()
+                            try:
+                                self.load_relationships(tx, txt, loading_mode)
+                                tx.commit()
+                            except Exception as e:
+                                tx.rollback()
+                                self.log.exception(e)
+                                return False
+            # Split Transactions Disabled
+            else:
+                # Data updates transaction
+                tx = session.begin_transaction()
+                try:
+                    if wipe_db:
+                        self.wipe_db(tx)
+                    for txt in file_list:
+                        self.load_nodes(tx, txt, loading_mode, no_parents)
+                    if loading_mode != DELETE_MODE:
+                        for txt in file_list:
+                            self.load_relationships(tx, txt, loading_mode)
+                    tx.commit()
+                except Exception as e:
+                    tx.rollback()
+                    self.log.exception(e)
+                    return False
+
+        # End the timer
         end = timer()
 
         # Print statistics
@@ -174,8 +204,6 @@ class DataLoader:
         self.log.info('Loading time: {:.2f} seconds'.format(end - start))  # Time in seconds, e.g. 5.38091952400282
         return {NODES_CREATED: self.nodes_created, RELATIONSHIP_CREATED: self.relationships_created,
                 NODES_DELETED: self.nodes_deleted, RELATIONSHIP_DELETED: self.relationships_deleted}
-
-
 
     # Remove extra spaces at begining and end of the keys and values
     @staticmethod
@@ -258,7 +286,9 @@ class DataLoader:
                 parent = header[0]
                 combined = '{}_{}'.format(parent, field_name)
                 if field_name in obj:
-                    self.log.debug('"{}" field is in both current node and parent "{}", use {} instead !'.format(key, parent, combined))
+                    self.log.debug(
+                        '"{}" field is in both current node and parent "{}", use {} instead !'.format(key, parent,
+                                                                                                      combined))
                     field_name = combined
                 # Add an value for parent id
                 obj2[field_name] = value
@@ -353,7 +383,6 @@ class DataLoader:
 
         return node
 
-
     # Validate file
     def validate_file(self, file_name, max_violations):
         with open(file_name) as in_file:
@@ -373,13 +402,15 @@ class DataLoader:
                     if node_id in IDs:
                         if props != IDs[node_id]['props']:
                             validation_failed = True
-                            self.log.error(f'Invalid data at line {line_num}: duplicate {id_field}: {node_id}, found in line: {", ".join(IDs[node_id]["lines"])}')
+                            self.log.error(
+                                f'Invalid data at line {line_num}: duplicate {id_field}: {node_id}, found in line: {", ".join(IDs[node_id]["lines"])}')
                             IDs[node_id]['lines'].append(str(line_num))
                         else:
                             # Same ID exists in same file, but properties are also same, probably it's pointing same object to multiple parents
-                            self.log.debug(f'Duplicated data at line {line_num}: duplicate {id_field}: {node_id}, found in line: {", ".join(IDs[node_id]["lines"])}')
+                            self.log.debug(
+                                f'Duplicated data at line {line_num}: duplicate {id_field}: {node_id}, found in line: {", ".join(IDs[node_id]["lines"])}')
                     else:
-                        IDs[node_id] = { 'props': props, 'lines': [str(line_num)] }
+                        IDs[node_id] = {'props': props, 'lines': [str(line_num)]}
 
                 validate_result = self.schema.validate_node(obj[NODE_TYPE], obj)
                 if not validate_result['result']:
@@ -443,7 +474,6 @@ class DataLoader:
             relationship_deleted += r_deleted
         return (node_deleted, relationship_deleted)
 
-
     # Return children of node without other parents
     def get_children_with_single_parent(self, session, node):
         node_type = node[NODE_TYPE]
@@ -463,7 +493,6 @@ class DataLoader:
             result[NODE_TYPE] = label
             break
         return result
-
 
     # Simple delete given node, and it's relationships
     def delete_single_node(self, session, node):
@@ -508,7 +537,9 @@ class DataLoader:
                     statement = self.get_upsert_statement(node_type, id_field, obj)
                 elif loading_mode == NEW_MODE:
                     if self.node_exists(session, node_type, id_field, node_id):
-                        raise Exception('Line: {}: Node (:{} {{ {}: {} }}) exists! Abort loading!'.format(line_num, node_type, id_field, node_id))
+                        raise Exception(
+                            'Line: {}: Node (:{} {{ {}: {} }}) exists! Abort loading!'.format(line_num, node_type,
+                                                                                              id_field, node_id))
                     else:
                         statement = self.get_new_statement(node_type, obj)
                 elif loading_mode == DELETE_MODE:
@@ -529,7 +560,6 @@ class DataLoader:
                 self.log.info('{} relationship(s) deleted'.format(relationship_deleted))
             else:
                 self.log.info('{} (:{}) node(s) loaded'.format(nodes_created, node_type))
-
 
     def node_exists(self, session, label, prop, value):
         statement = 'MATCH (m:{0} {{ {1}: {{{1}}} }}) return m'.format(label, prop)
@@ -559,7 +589,8 @@ class DataLoader:
                     self.log.error('Line: {}: Relationship not found!'.format(line_num))
                     raise Exception('Undefined relationship, abort loading!')
                 if not self.node_exists(session, other_node, other_id, value):
-                    if create_intermediate_node and self.int_node_creator and self.int_node_creator.is_valid_int_node(other_node):
+                    if create_intermediate_node and self.int_node_creator and self.int_node_creator.is_valid_int_node(
+                            other_node):
                         if self.int_node_creator.create_intermediate_node(session, line_num, other_node, value, obj):
                             int_node_created += 1
                             relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,
@@ -569,14 +600,18 @@ class DataLoader:
                                 'Line: {}: Couldn\'t create {} node automatically!'.format(line_num, other_node))
                     else:
                         self.log.warning(
-                            'Line: {}: Parent node (:{} {{{}: "{}"}} not found in DB!'.format(line_num, other_node, other_id,
-                                                                                                   value))
+                            'Line: {}: Parent node (:{} {{{}: "{}"}} not found in DB!'.format(line_num, other_node,
+                                                                                              other_id,
+                                                                                              value))
                 else:
-                    if multiplier == ONE_TO_ONE and self.parent_already_has_child(session, node_type, obj, relationship_name, other_node, other_id, value):
-                        self.log.error('Line: {}: one_to_one relationship failed, parent already has a child!'.format(line_num))
+                    if multiplier == ONE_TO_ONE and self.parent_already_has_child(session, node_type, obj,
+                                                                                  relationship_name, other_node,
+                                                                                  other_id, value):
+                        self.log.error(
+                            'Line: {}: one_to_one relationship failed, parent already has a child!'.format(line_num))
                     else:
                         relationships.append({PARENT_TYPE: other_node, PARENT_ID_FIELD: other_id, PARENT_ID: value,
-                                          RELATIONSHIP_TYPE: relationship_name, MULTIPLIER: multiplier})
+                                              RELATIONSHIP_TYPE: relationship_name, MULTIPLIER: multiplier})
             elif self.schema.is_relationship_property(key):
                 rel_name, prop_name = key.split(self.rel_prop_delimiter)
                 if rel_name not in relationship_properties:
@@ -585,13 +620,17 @@ class DataLoader:
         return {RELATIONSHIPS: relationships, INT_NODE_CREATED: int_node_created, PROVIDED_PARENTS: provided_parents,
                 RELATIONSHIP_PROPS: relationship_properties}
 
-    def parent_already_has_child(self, session, node_type, node, relationship_name, parent_type, parent_id_field, parent_id):
-        statement = 'MATCH (n:{})-[r:{}]->(m:{} {{ {}: {{parent_id}} }}) return n'.format(node_type, relationship_name, parent_type, parent_id_field)
+    def parent_already_has_child(self, session, node_type, node, relationship_name, parent_type, parent_id_field,
+                                 parent_id):
+        statement = 'MATCH (n:{})-[r:{}]->(m:{} {{ {}: {{parent_id}} }}) return n'.format(node_type, relationship_name,
+                                                                                          parent_type, parent_id_field)
         result = session.run(statement, {"parent_id": parent_id})
         if result:
             child = result.single()
             if child:
-                find_current_node_statement = 'MATCH (n:{0} {{ {1}: {{{1}}} }}) return n'.format(node_type, self.schema.get_id_field(node))
+                find_current_node_statement = 'MATCH (n:{0} {{ {1}: {{{1}}} }}) return n'.format(node_type,
+                                                                                                 self.schema.get_id_field(
+                                                                                                     node))
                 current_node_result = session.run(find_current_node_statement, node)
                 if current_node_result:
                     current_node = current_node_result.single()
@@ -675,14 +714,16 @@ class DataLoader:
                                 self.remove_old_relationship(session, node_type, obj, relationship)
                             elif loading_mode == NEW_MODE:
                                 if self.has_existing_relationship(session, node_type, obj, relationship, True):
-                                    raise Exception('Line: {}: Relationship already exists, abort loading!'.format(line_num))
+                                    raise Exception(
+                                        'Line: {}: Relationship already exists, abort loading!'.format(line_num))
                             else:
                                 raise Exception('Wrong loading_mode: {}'.format(loading_mode))
                         else:
                             self.log.debug('Multiplier: {}, no action needed!'.format(multiplier))
                         prop_statement = ', '.join(self.get_relationship_prop_statements(properties))
                         statement = 'MATCH (m:{0} {{ {1}: {{{1}}} }})'.format(parent_node, parent_id_field)
-                        statement += ' MATCH (n:{0} {{ {1}: {{{1}}} }})'.format(node_type, self.schema.get_id_field(obj))
+                        statement += ' MATCH (n:{0} {{ {1}: {{{1}}} }})'.format(node_type,
+                                                                                self.schema.get_id_field(obj))
                         statement += ' MERGE (n)-[r:{}]->(m)'.format(relationship_name)
                         statement += ' ON CREATE SET r.{} = datetime()'.format(CREATED)
                         statement += ', {}'.format(prop_statement) if prop_statement else ''
@@ -693,8 +734,10 @@ class DataLoader:
                         count = result.summary().counters.relationships_created
                         self.relationships_created += count
                         relationship_pattern = '(:{})->[:{}]->(:{})'.format(node_type, relationship_name, parent_node)
-                        relationships_created[relationship_pattern] = relationships_created.get(relationship_pattern, 0) + count
-                        self.relationships_stat[relationship_name] = self.relationships_stat.get(relationship_name, 0) + count
+                        relationships_created[relationship_pattern] = relationships_created.get(relationship_pattern,
+                                                                                                0) + count
+                        self.relationships_stat[relationship_name] = self.relationships_stat.get(relationship_name,
+                                                                                                 0) + count
 
             for rel, count in relationships_created.items():
                 self.log.info('{} {} relationship(s) loaded'.format(count, rel))
@@ -711,12 +754,31 @@ class DataLoader:
             prop_stmts.append('r.{0} = {{{0}}}'.format(key))
         return prop_stmts
 
-
     def wipe_db(self, session):
         cleanup_db = 'MATCH (n) DETACH DELETE n'
         result = session.run(cleanup_db).summary()
         self.nodes_deleted = result.counters.nodes_deleted
         self.relationships_deleted = result.counters.relationships_deleted
+        self.log.info('{} nodes deleted!'.format(self.nodes_deleted))
+        self.log.info('{} relationships deleted!'.format(self.relationships_deleted))
+
+    def wipe_db_split(self, session):
+        while True:
+            tx = session.begin_transaction()
+            try:
+                cleanup_db = 'MATCH (n) WITH n LIMIT 10000 DETACH DELETE n'
+                result = session.run(cleanup_db).summary()
+                tx.commit()
+                deleted_nodes = result.counters.nodes_deleted
+                self.nodes_deleted += deleted_nodes
+                deleted_relationships = result.counters.relationships_deleted
+                self.relationships_deleted += deleted_relationships
+                if deleted_nodes == 0 and deleted_relationships == 0:
+                    break
+            except Exception as e:
+                tx.rollback()
+                self.log.exception(e)
+                raise e
         self.log.info('{} nodes deleted!'.format(self.nodes_deleted))
         self.log.info('{} relationships deleted!'.format(self.relationships_deleted))
 
@@ -744,5 +806,3 @@ class DataLoader:
             session.run(command)
             self.indexes_created += 1
             self.log.info("Index created for \"{}\" on property \"{}\"".format(node_name, node_property))
-
-
