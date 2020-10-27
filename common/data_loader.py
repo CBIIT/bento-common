@@ -27,6 +27,7 @@ RELATIONSHIPS = 'relationships'
 INT_NODE_CREATED = 'int_node_created'
 PROVIDED_PARENTS = 'provided_parents'
 RELATIONSHIP_PROPS = 'relationship_properties'
+BATCH_SIZE = 1000
 
 
 def get_indexes(session):
@@ -140,43 +141,14 @@ class DataLoader:
         with self.driver.session() as session:
             # Split Transactions enabled
             if split:
-                if wipe_db:
-                    try:
-                        self.wipe_db_split(session)
-                    except Exception as e:
-                        # Exception already logged
-                        return False
-                for txt in file_list:
-                    tx = session.begin_transaction()
-                    try:
-                        self.load_nodes(tx, txt, loading_mode, no_parents)
-                        tx.commit()
-                    except Exception as e:
-                        tx.rollback()
-                        self.log.exception(e)
-                        return False
-                if loading_mode != DELETE_MODE:
-                    for txt in file_list:
-                            tx = session.begin_transaction()
-                            try:
-                                self.load_relationships(tx, txt, loading_mode)
-                                tx.commit()
-                            except Exception as e:
-                                tx.rollback()
-                                self.log.exception(e)
-                                return False
+                self._load_all(session, file_list, loading_mode, no_parents, split, wipe_db)
+
             # Split Transactions Disabled
             else:
                 # Data updates transaction
                 tx = session.begin_transaction()
                 try:
-                    if wipe_db:
-                        self.wipe_db(tx)
-                    for txt in file_list:
-                        self.load_nodes(tx, txt, loading_mode, no_parents)
-                    if loading_mode != DELETE_MODE:
-                        for txt in file_list:
-                            self.load_relationships(tx, txt, loading_mode)
+                    self._load_all(tx, file_list, loading_mode, no_parents, split, wipe_db)
                     tx.commit()
                 except Exception as e:
                     tx.rollback()
@@ -204,6 +176,15 @@ class DataLoader:
         self.log.info('Loading time: {:.2f} seconds'.format(end - start))  # Time in seconds, e.g. 5.38091952400282
         return {NODES_CREATED: self.nodes_created, RELATIONSHIP_CREATED: self.relationships_created,
                 NODES_DELETED: self.nodes_deleted, RELATIONSHIP_DELETED: self.relationships_deleted}
+
+    def _load_all(self, tx, file_list, loading_mode, no_parents, split, wipe_db):
+        if wipe_db:
+            self.wipe_db(tx, split)
+        for txt in file_list:
+            self.load_nodes(tx, txt, loading_mode, no_parents, split)
+        if loading_mode != DELETE_MODE:
+            for txt in file_list:
+                self.load_relationships(tx, txt, loading_mode, split)
 
     # Remove extra spaces at begining and end of the keys and values
     @staticmethod
@@ -507,7 +488,7 @@ class DataLoader:
         return (nodes_deleted, relationship_deleted)
 
     # load file
-    def load_nodes(self, session, file_name, loading_mode, no_parents):
+    def load_nodes(self, session, file_name, loading_mode, no_parents, split=False):
         if loading_mode == NEW_MODE:
             action_word = 'Loading new'
         elif loading_mode == UPSERT_MODE:
@@ -525,8 +506,17 @@ class DataLoader:
             node_type = 'UNKNOWN'
             relationship_deleted = 0
             line_num = 1
+            transaction_counter = 0
+
+            # Use session in one transaction mode
+            tx = session
+            # Use transactions in split-transactions mode
+            if split:
+                tx = session.begin_transaction()
+
             for org_obj in reader:
                 line_num += 1
+                transaction_counter += 1
                 obj = self.prepare_node(org_obj, no_parents)
                 node_type = obj[NODE_TYPE]
                 node_id = self.schema.get_id(obj)
@@ -536,25 +526,36 @@ class DataLoader:
                 if loading_mode == UPSERT_MODE:
                     statement = self.get_upsert_statement(node_type, id_field, obj)
                 elif loading_mode == NEW_MODE:
-                    if self.node_exists(session, node_type, id_field, node_id):
+                    if self.node_exists(tx, node_type, id_field, node_id):
                         raise Exception(
                             'Line: {}: Node (:{} {{ {}: {} }}) exists! Abort loading!'.format(line_num, node_type,
                                                                                               id_field, node_id))
                     else:
                         statement = self.get_new_statement(node_type, obj)
                 elif loading_mode == DELETE_MODE:
-                    n_deleted, r_deleted = self.delete_node(session, obj)
+                    n_deleted, r_deleted = self.delete_node(tx, obj)
                     nodes_deleted += n_deleted
                     relationship_deleted += r_deleted
                 else:
                     raise Exception('Wrong loading_mode: {}'.format(loading_mode))
 
                 if loading_mode != DELETE_MODE:
-                    result = session.run(statement, obj)
+                    result = tx.run(statement, obj)
                     count = result.summary().counters.nodes_created
                     self.nodes_created += count
                     nodes_created += count
                     self.nodes_stat[node_type] = self.nodes_stat.get(node_type, 0) + count
+                # commit and restart a transaction when batch size reached
+                if split and transaction_counter >= BATCH_SIZE:
+                    tx.commit()
+                    tx = session.begin_transaction()
+                    self.log.info(f'{line_num -1} rows loaded ...')
+                    transaction_counter = 0
+            # commit last transaction
+            if split:
+                tx.commit()
+
+
             if loading_mode == DELETE_MODE:
                 self.log.info('{} node(s) deleted'.format(nodes_deleted))
                 self.log.info('{} relationship(s) deleted'.format(relationship_deleted))
@@ -676,7 +677,7 @@ class DataLoader:
             if not del_result:
                 self.log.error('Delete old relationship failed!')
 
-    def load_relationships(self, session, file_name, loading_mode):
+    def load_relationships(self, session, file_name, loading_mode, split=False):
         if loading_mode == NEW_MODE:
             action_word = 'Loading new'
         elif loading_mode == UPSERT_MODE:
@@ -690,11 +691,20 @@ class DataLoader:
             relationships_created = {}
             int_nodes_created = 0
             line_num = 1
+            transaction_counter = 0
+
+            # Use session in one transaction mode
+            tx = session
+            # Use transactions in split-transactions mode
+            if split:
+                tx = session.begin_transaction()
+
             for org_obj in reader:
                 line_num += 1
+                transaction_counter += 1
                 obj = self.prepare_node(org_obj, False)
                 node_type = obj[NODE_TYPE]
-                results = self.collect_relationships(obj, session, True, line_num)
+                results = self.collect_relationships(obj, tx, True, line_num)
                 relationships = results[RELATIONSHIPS]
                 int_nodes_created += results[INT_NODE_CREATED]
                 provided_parents = results[PROVIDED_PARENTS]
@@ -711,9 +721,9 @@ class DataLoader:
                         properties = relationship_props.get(relationship_name, {})
                         if multiplier in [DEFAULT_MULTIPLIER, ONE_TO_ONE]:
                             if loading_mode == UPSERT_MODE:
-                                self.remove_old_relationship(session, node_type, obj, relationship)
+                                self.remove_old_relationship(tx, node_type, obj, relationship)
                             elif loading_mode == NEW_MODE:
-                                if self.has_existing_relationship(session, node_type, obj, relationship, True):
+                                if self.has_existing_relationship(tx, node_type, obj, relationship, True):
                                     raise Exception(
                                         'Line: {}: Relationship already exists, abort loading!'.format(line_num))
                             else:
@@ -730,7 +740,7 @@ class DataLoader:
                         statement += ' ON MATCH SET r.{} = datetime()'.format(UPDATED)
                         statement += ', {}'.format(prop_statement) if prop_statement else ''
 
-                        result = session.run(statement, {**obj, **properties})
+                        result = tx.run(statement, {**obj, **properties})
                         count = result.summary().counters.relationships_created
                         self.relationships_created += count
                         relationship_pattern = '(:{})->[:{}]->(:{})'.format(node_type, relationship_name, parent_node)
@@ -738,6 +748,15 @@ class DataLoader:
                                                                                                 0) + count
                         self.relationships_stat[relationship_name] = self.relationships_stat.get(relationship_name,
                                                                                                  0) + count
+                # commit and restart a transaction when batch size reached
+                if split and transaction_counter >= BATCH_SIZE:
+                    tx.commit()
+                    tx = session.begin_transaction()
+                    self.log.info(f'{line_num -1} rows loaded ...')
+                    transaction_counter = 0
+            # commit last transaction
+            if split:
+                tx.commit()
 
             for rel, count in relationships_created.items():
                 self.log.info('{} {} relationship(s) loaded'.format(count, rel))
@@ -754,25 +773,30 @@ class DataLoader:
             prop_stmts.append('r.{0} = {{{0}}}'.format(key))
         return prop_stmts
 
-    def wipe_db(self, session):
-        cleanup_db = 'MATCH (n) DETACH DELETE n'
-        result = session.run(cleanup_db).summary()
-        self.nodes_deleted = result.counters.nodes_deleted
-        self.relationships_deleted = result.counters.relationships_deleted
-        self.log.info('{} nodes deleted!'.format(self.nodes_deleted))
-        self.log.info('{} relationships deleted!'.format(self.relationships_deleted))
+    def wipe_db(self, session, split=False):
+        if split:
+            return self.wipe_db_split(session)
+        else:
+            cleanup_db = 'MATCH (n) DETACH DELETE n'
+            result = session.run(cleanup_db).summary()
+            self.nodes_deleted = result.counters.nodes_deleted
+            self.relationships_deleted = result.counters.relationships_deleted
+            self.log.info('{} nodes deleted!'.format(self.nodes_deleted))
+            self.log.info('{} relationships deleted!'.format(self.relationships_deleted))
 
     def wipe_db_split(self, session):
         while True:
             tx = session.begin_transaction()
             try:
-                cleanup_db = 'MATCH (n) WITH n LIMIT 10000 DETACH DELETE n'
+                cleanup_db = f'MATCH (n) WITH n LIMIT {BATCH_SIZE} DETACH DELETE n'
                 result = session.run(cleanup_db).summary()
                 tx.commit()
                 deleted_nodes = result.counters.nodes_deleted
                 self.nodes_deleted += deleted_nodes
                 deleted_relationships = result.counters.relationships_deleted
                 self.relationships_deleted += deleted_relationships
+                self.log.info(f'{deleted_nodes} nodes deleted...')
+                self.log.info(f'{deleted_relationships} relationships deleted...')
                 if deleted_nodes == 0 and deleted_relationships == 0:
                     break
             except Exception as e:
