@@ -4,7 +4,12 @@ import os
 from collections import deque
 import csv
 import re
+import datetime
+import sys
+import platform
+import subprocess
 from timeit import default_timer as timer
+from bento.common.utils import get_host, DATETIME_FORMAT
 
 from neo4j import Driver
 
@@ -59,6 +64,55 @@ def format_as_tuple(node_name, properties):
     return tuple(lst)
 
 
+def backup_neo4j(backup_dir, name, address, log):
+    try:
+        restore_cmd = 'To restore DB from backup (to remove any changes caused by current data loading, run following commands:\n'
+        restore_cmd += '#' * 160 + '\n'
+        neo4j_cmd = 'neo4j-admin restore --from={}/{} --force'.format(backup_dir, name)
+        mkdir_cmd = [
+            'mkdir',
+            '-p',
+            backup_dir
+        ]
+        is_shell = False
+        # settings for Windows platforms
+        if platform.system() == "Windows":
+            mkdir_cmd[2] = os.path.abspath(backup_dir)
+            is_shell = True
+        cmds = [
+            mkdir_cmd,
+            [
+                'neo4j-admin',
+                'backup',
+                '--backup-dir={}'.format(backup_dir),
+                '--name={}'.format(name),
+            ]
+        ]
+        if address in ['localhost', '127.0.0.1']:
+            # On Windows, the Neo4j service cannot be accessed through the command line without an absolute path
+            # or a custom installation location
+            if platform.system() == "Windows":
+                restore_cmd += '\tManually stop the Neo4j service\n\t$ {}\n\tManually start the Neo4j service\n'.format(
+                    neo4j_cmd)
+            else:
+                restore_cmd += '\t$ neo4j stop && {} && neo4j start\n'.format(neo4j_cmd)
+            for cmd in cmds:
+                log.info(cmd)
+                subprocess.call(cmd, shell=is_shell)
+        else:
+            second_cmd = 'sudo systemctl stop neo4j && {} && sudo systemctl start neo4j && exit'.format(neo4j_cmd)
+            restore_cmd += '\t$ echo "{}" | ssh -t {} sudo su - neo4j\n'.format(second_cmd, address)
+            for cmd in cmds:
+                remote_cmd = ['ssh', address, '-o', 'StrictHostKeyChecking=no'] + cmd
+                log.info(' '.join(remote_cmd))
+                subprocess.call(remote_cmd)
+        restore_cmd += '#' * 160
+        return restore_cmd
+    except Exception as e:
+        log.exception(e)
+        return False
+
+
 class DataLoader:
     def __init__(self, driver, schema, intermediate_node_creator=None):
         if not schema or not isinstance(schema, ICDC_Schema):
@@ -101,13 +155,22 @@ class DataLoader:
             return True
 
     def load(self, file_list, cheat_mode, dry_run, loading_mode, wipe_db, max_violations, no_parents,
-             split=False):
+             split=False, no_backup=True, backup_folder="/", neo4j_uri=None):
         if not self.check_files(file_list):
             return False
         start = timer()
         if not self.validate_files(cheat_mode, file_list, max_violations):
             return False
-
+        if not no_backup and not dry_run:
+            if not neo4j_uri:
+                self.log.error('No Neo4j URI specified for backup, abort loading!')
+                sys.exit(1)
+            backup_name = datetime.datetime.today().strftime(DATETIME_FORMAT)
+            host = get_host(neo4j_uri)
+            restore_cmd = backup_neo4j(backup_folder, backup_name, host, self.log)
+            if not restore_cmd:
+                self.log.error('Backup Neo4j failed, abort loading!')
+                sys.exit(1)
         if dry_run:
             end = timer()
             self.log.info('Dry run mode, no nodes or relationships loaded.')  # Time in seconds, e.g. 5.38091952400282
@@ -830,3 +893,4 @@ class DataLoader:
             session.run(command)
             self.indexes_created += 1
             self.log.info("Index created for \"{}\" on property \"{}\"".format(node_name, node_property))
+
