@@ -18,7 +18,7 @@ class Props:
                 self.visit_date_in_nodes = props.get('visit_date_in_nodes', {})
                 self.domain = props.get('domain', 'Unknown.domain.nci.nih.gov')
                 self.rel_prop_delimiter = props.get('rel_prop_delimiter', '$')
-                self.indexes = props.get('indexes', {})
+                self.indexes = props.get('indexes', [])
         else:
             msg = f'Can NOT open file: "{file_name}"'
             self.log.error(msg)

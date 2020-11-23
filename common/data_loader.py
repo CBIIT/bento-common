@@ -883,11 +883,17 @@ class DataLoader:
             self.create_index(node_name, ids[node_name], existing, session)
         # Create indexes from "indexes" section of the properties file
         indexes = self.schema.props.indexes
-        for node_name in indexes:
-            self.create_index(node_name, indexes[node_name], existing, session)
+        # each index is a dictionary, indexes is a list of these dictionaries
+        # for each dictionary in list
+        for node_dict in indexes:
+            node_name = list(node_dict.keys())[0]
+            self.create_index(node_name, node_dict[node_name], existing, session)
 
     def create_index(self, node_name, node_property, existing, session):
         index_tuple = format_as_tuple(node_name, node_property)
+        # If node_property is a list of properties, convert to a comma delimited string
+        if isinstance(node_property, list):
+            node_property = ",".join(node_property)
         if index_tuple not in existing:
             command = "CREATE INDEX ON :{}({});".format(node_name, node_property)
             session.run(command)
