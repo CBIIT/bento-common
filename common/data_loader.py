@@ -355,7 +355,8 @@ class DataLoader:
             self.log.error('Invalid Neo4j Python Driver!')
             return False
         with self.driver.session() as session:
-            with open(file_name) as in_file:
+            file_encoding = self.check_encoding(file_name)
+            with open(file_name, encoding=file_encoding) as in_file:
                 self.log.info('Validating relationships in file "{}" ...'.format(file_name))
                 reader = csv.DictReader(in_file, delimiter='\t')
                 line_num = 1
@@ -384,7 +385,8 @@ class DataLoader:
             self.log.error('Invalid Neo4j Python Driver!')
             return False
         with self.driver.session() as session:
-            with open(file_name) as in_file:
+            file_encoding = self.check_encoding(file_name)
+            with open(file_name, encoding=file_encoding) as in_file:
                 self.log.info('Validating relationships in file "{}" ...'.format(file_name))
                 reader = csv.DictReader(in_file, delimiter='\t')
                 line_num = 1
@@ -427,9 +429,22 @@ class DataLoader:
 
         return node
 
+    #Check encoding
+    def check_encoding(self, file_name):
+        utf8 = 'utf-8'
+        windows1252 = 'windows-1252'
+        try:
+            with open(file_name, encoding=utf8) as file:
+                for line in file.readlines():
+                    pass
+            return utf8
+        except UnicodeDecodeError:
+            return windows1252
+
     # Validate file
     def validate_file(self, file_name, max_violations):
-        with open(file_name) as in_file:
+        file_encoding = self.check_encoding(file_name)
+        with open(file_name, encoding=file_encoding) as in_file:
             self.log.info('Validating file "{}" ...'.format(file_name))
             reader = csv.DictReader(in_file, delimiter='\t')
             line_num = 1
@@ -562,7 +577,8 @@ class DataLoader:
             raise Exception('Wrong loading_mode: {}'.format(loading_mode))
         self.log.info('{} nodes from file: {}'.format(action_word, file_name))
 
-        with open(file_name) as in_file:
+        file_encoding = self.check_encoding(file_name)
+        with open(file_name, encoding=file_encoding) as in_file:
             reader = csv.DictReader(in_file, delimiter='\t')
             nodes_created = 0
             nodes_deleted = 0
@@ -749,7 +765,8 @@ class DataLoader:
             raise Exception('Wrong loading_mode: {}'.format(loading_mode))
         self.log.info('{} relationships from file: {}'.format(action_word, file_name))
 
-        with open(file_name) as in_file:
+        file_encoding = self.check_encoding(file_name)
+        with open(file_name, encoding=file_encoding) as in_file:
             reader = csv.DictReader(in_file, delimiter='\t')
             relationships_created = {}
             int_nodes_created = 0
