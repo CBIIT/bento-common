@@ -308,6 +308,7 @@ class DataLoader:
                     obj[key] = cleaned_value
                 elif key_type == 'Array':
                     items = self.schema.get_list_values(value)
+                    # todo: need to transform items if item type is not string
                     obj[key] = json.dumps(items)
 
         if UUID not in obj:
