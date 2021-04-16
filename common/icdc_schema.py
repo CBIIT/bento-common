@@ -18,6 +18,8 @@ END_POINTS = 'Ends'
 SRC = 'Src'
 DEST = 'Dst'
 VALUE_TYPE = 'value_type'
+ITEM_TYPE = 'item_type'
+LIST_DELIMITER = '*'
 LABEL_NEXT = 'next'
 NEXT_RELATIONSHIP = 'next'
 UNITS = 'units'
@@ -233,6 +235,9 @@ class ICDC_Schema:
                 elif isinstance(prop_desc, dict):
                     if VALUE_TYPE in prop_desc:
                         result[PROP_TYPE] = self.map_type(prop_desc[VALUE_TYPE])
+                        if ITEM_TYPE in prop_desc:
+                            item_type = self._get_item_type(prop_desc[ITEM_TYPE])
+                            result[ITEM_TYPE] = item_type
                         if UNITS in prop_desc:
                             result[HAS_UNIT] = True
                 elif isinstance(prop_desc, list):
@@ -256,6 +261,22 @@ class ICDC_Schema:
                     result[EX_MAX] = float(prop[EX_MAX])
 
         return result
+
+    def _get_item_type(self, item_type):
+        if isinstance(item_type, str):
+            return {PROP_TYPE: self.map_type(item_type)}
+        elif isinstance(item_type, list):
+            enum = set()
+            for t in item_type:
+                if not re.search(r'://', t):
+                    enum.add(t)
+            if len(enum) > 0:
+                return {PROP_TYPE: DEFAULT_TYPE, ENUM: enum}
+            else:
+                return None
+        else:
+            self.log.error(f"{item_type} is not a scala or Enum!")
+            return None
 
     def get_prop(self, node_name, name):
         if node_name in self.nodes:
@@ -366,7 +387,7 @@ class ICDC_Schema:
                         'Property: "{}":"{}" is not a valid "{}" type!'.format(rel_prop, value, prop_type))
 
             elif key not in properties:
-                self.log.debug('Property "{}" is not in data model!'.format(key))
+                self.log.warn('Property "{}" is not in data model!'.format(key))
             else:
                 prop_type = properties[key]
                 if not self._validate_type(prop_type, value):
@@ -422,8 +443,10 @@ class ICDC_Schema:
                     and not re.match(r'\bltf\b', str_value, re.IGNORECASE)):
                 return False
         elif model_type[PROP_TYPE] == 'Array':
-            if not isinstance(str_value, list):
-                return False
+            for item in self.get_list_values(str_value):
+                if not self._validate_type(model_type[ITEM_TYPE], item):
+                    return False
+
         elif model_type[PROP_TYPE] == 'Object':
             if not isinstance(str_value, dict):
                 return False
@@ -450,6 +473,9 @@ class ICDC_Schema:
             except ValueError:
                 return False
         return True
+
+    def get_list_values(self, list_str):
+        return [item.strip() for item in list_str.split(LIST_DELIMITER)]
 
     # Find relationship type from src to dest
     def get_relationship(self, src, dest):

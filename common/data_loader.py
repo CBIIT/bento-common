@@ -8,6 +8,7 @@ import datetime
 import sys
 import platform
 import subprocess
+import json
 from timeit import default_timer as timer
 from bento.common.utils import get_host, DATETIME_FORMAT
 
@@ -305,6 +306,9 @@ class DataLoader:
                     except Exception:
                         cleaned_value = None
                     obj[key] = cleaned_value
+                elif key_type == 'Array':
+                    items = self.schema.get_list_values(value)
+                    obj[key] = json.dumps(items)
 
         if UUID not in obj:
             id_field = self.schema.get_id_field(obj)
