@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import time
+from importlib import import_module
 from urllib.parse import urlparse
 import shutil
 import uuid
@@ -260,6 +261,15 @@ def stream_download(url, local_file):
 
         with open(local_file, 'wb') as file:
             shutil.copyfileobj(r.raw, file)
+
+def load_plugin(module_name, class_name, params):
+    module = import_module(module_name)
+    class_ = getattr(module, class_name)
+    if isinstance(params, dict):
+        plugin = class_(**params)
+    else:
+        plugin = class_()
+    return plugin
 
 
 NODES_CREATED = 'nodes_created'
