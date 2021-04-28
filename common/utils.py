@@ -288,4 +288,5 @@ NEW_MODE = 'new'
 UPSERT_MODE = 'upsert'
 DELETE_MODE = 'delete'
 MISSING_PARENT = 'missing_parent'
+NODE_LOADED = 'node_loaded'
 
