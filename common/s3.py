@@ -131,8 +131,11 @@ class S3Bucket:
             for file in result.get('Contents', []):
                 if file['Size'] > 0:
                     key = file['Key']
-                    base_name = os.path.basename(key)
+                    base_name = os.path.relpath(key, folder)
                     file_name = os.path.join(local_path, base_name)
+                    dir_name = os.path.dirname(file_name)
+                    if not os.path.exists(dir_name):
+                        os.makedirs(dir_name)
                     self.log.info('Downloading "{}" from AWS S3'.format(base_name))
                     self.download_file(key, file_name)
             return True
