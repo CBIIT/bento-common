@@ -1,5 +1,5 @@
 import base64
-import datetime
+from datetime import datetime
 import hashlib
 import logging
 import os
@@ -88,7 +88,7 @@ def get_log_file():
 
 
 def get_time_stamp():
-    return datetime.datetime.now().strftime(DATETIME_FORMAT)
+    return datetime.now().strftime(DATETIME_FORMAT)
 
 def remove_leading_slashes(uri):
     '''
@@ -272,12 +272,49 @@ def load_plugin(module_name, class_name, params):
     return plugin
 
 
+def parse_date(date_string):
+    for date_format in DATE_FORMATS:
+        try:
+            formatted_date = datetime.strptime(date_string, date_format)
+            return formatted_date
+        except ValueError:
+            pass
+    raise ValueError("Unable to parse date from string: {}".format(date_string))
+
+
+def date_to_string(date):
+    return date.strftime(DEFAULT_DATE_FORMAT)
+
+
+def reformat_date(date_string):
+    try:
+        date = parse_date(date_string)
+        return date_to_string(date)
+    except ValueError:
+        return date_string
+
+
 NODES_CREATED = 'nodes_created'
 RELATIONSHIP_CREATED = 'relationship_created'
 NODES_DELETED = 'nodes_deleted'
 RELATIONSHIP_DELETED = 'relationship_deleted'
 BLOCK_SIZE = 65536
-DATE_FORMAT = '%Y-%m-%d'
+DEFAULT_DATE_FORMAT = '%Y-%m-%d'
+DATE_FORMATS = [
+    '%Y-%m-%d',     # YYYY-MM-DD
+    '%Y-%-m-%-d',   # YYYY-[M]M-[D]D
+    '%m/%d/%Y',     # MM/DD/YYYY
+    '%-m/%-d/%Y',   # [M]M/[D]D/YYYY
+    '%Y/%m/%d',     # YYYY/MM/DD
+    '%Y/%-m/%-d',   # YYYY/[M]M/[D]D
+    '%Y%m%d',       # YYYYMMDD
+    '%m-%d-%Y',     # MM-DD-YYYY
+    '%-m-%-d-%Y',   # [M]M-[D]D-YYYY
+    '%b %d %Y',     # MMM DD YYYY
+    '%b %-d %Y',    # MMM [D]D YYYY
+    '%d %b %Y',     # DD MMM YYYY
+    '%-d %b %Y'     # [D]D MMM YYYY
+]
 DATETIME_FORMAT = '%Y%m%d-%H%M%S'
 RELATIONSHIP_TYPE = 'relationship_type'
 MULTIPLIER = 'Mul'
