@@ -294,6 +294,21 @@ def reformat_date(date_string):
         return date_string
 
 
+# Print all configurations, but hide passwords
+def print_config(logger, config):
+    PASSWORD_FIELDS = [
+        'neo4j_password'
+    ]
+    if isinstance(config, object):
+        config = config.__dict__
+
+    for key, value in config.items():
+        if key in PASSWORD_FIELDS:
+            value = '*' * 8
+        logger.info(f'{key}: "{value}"')
+
+
+
 NODES_CREATED = 'nodes_created'
 RELATIONSHIP_CREATED = 'relationship_created'
 NODES_DELETED = 'nodes_deleted'
