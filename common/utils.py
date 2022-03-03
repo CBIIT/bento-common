@@ -299,8 +299,8 @@ def print_config(logger, config):
     PASSWORD_FIELDS = [
         'neo4j_password'
     ]
-    # if isinstance(config, object):
-    #     config = config.__dict__
+    if not isinstance(config, dict):
+        config = config.__dict__
 
     for key, value in config.items():
         if key in PASSWORD_FIELDS:
