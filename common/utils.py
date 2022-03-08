@@ -9,6 +9,7 @@ from importlib import import_module
 from urllib.parse import urlparse
 import shutil
 import uuid
+from io import BytesIO
 
 from requests import post, get
 
@@ -165,6 +166,10 @@ def get_stream_md5(stream):
     hash = get_stream_hash(stream, hash_obj)
     return hash.hexdigest()
 
+
+def get_string_md5(text):
+    stream = BytesIO(bytes(text, 'utf-8'))
+    return get_stream_md5(stream)
 
 def get_md5_hex_n_base64(file_name):
     '''
