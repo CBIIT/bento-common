@@ -6,8 +6,8 @@ def get_okta_token(secrets, url=''):
 			"username": secrets["CURRENT_OKTA_USERNAME"],
 			"password": secrets["CURRENT_OKTA_PASSWORD"],
 			"client_secret": secrets["OKTA_CLIENT_SECRET"],
-			"grant_type": "client_credentials",
-			"scope": "roles"}
+			"grant_type": secrets["OKTA_GRANT_TYPE"],
+			"scope": secrets["OKTA_SCOPE"]}
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
 
     r = requests.post(url, data=(body), headers=headers)
