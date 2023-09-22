@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import shutil
 
 import boto3
 import botocore
@@ -149,3 +150,34 @@ class S3Bucket:
             elif error_code == 404:
                 self.log.error('Bucket: "{}" does NOT exist!'.format(self.bucket_name))
             return False
+        
+#since this module reference utils module, to avoid circlur referencing, I put these two upload log functions here. 
+# the fuction callers must handle the exceptions occured.  
+#upload log file to s3 bucket folder  
+def __upload_log_file(bucket_name, folder, ori_log_file):
+    base_name = os.path.basename(ori_log_file)
+    s3 = S3Bucket(bucket_name)
+    key = f'{folder}/{base_name}'
+    s3.upload_file(key, ori_log_file)
+
+#upload log file to configured path.
+def upload_log_file(filepath, ori_log_file): 
+    if not filepath or not type(filepath) is str:
+        raise Exception("Invalid file path")
+
+    filepath= filepath.strip()
+    #check if s3 bucket
+    if(filepath.startswith("s3://", 0)):
+        temparr = filepath.replace("s3://", "", 1).split("/", 1)
+        if len(temparr) == 2:
+            #upload to s3 bucket
+            __upload_log_file(temparr[0], temparr[1], ori_log_file) 
+        else:
+            raise Exception("Invalid file path") 
+    else:
+        #copy log file to the local folder
+        dest_log_file_dir = filepath
+        if not os.path.exists(dest_log_file_dir):
+            os.mkdir(dest_log_file_dir)
+        #copy log file to dest_log_file_dir
+        shutil.copy(ori_log_file, dest_log_file_dir)   
