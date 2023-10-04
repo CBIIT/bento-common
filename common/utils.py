@@ -318,6 +318,7 @@ NODES_CREATED = 'nodes_created'
 RELATIONSHIP_CREATED = 'relationship_created'
 NODES_DELETED = 'nodes_deleted'
 RELATIONSHIP_DELETED = 'relationship_deleted'
+NODES_UPDATED = 'nodes_updated'
 BLOCK_SIZE = 65536
 DEFAULT_DATE_FORMAT = '%Y-%m-%d'
 DATE_FORMATS = [
