@@ -89,7 +89,8 @@ def get_log_file():
 
 
 def get_time_stamp():
-    return datetime.now().strftime(DATETIME_FORMAT)
+    return datetime.now().strftime(TIMESTAMP_FORMAT)
+    #return datetime.now().strftime(DATETIME_FORMAT)
 
 def remove_leading_slashes(uri):
     '''
@@ -337,6 +338,7 @@ DATE_FORMATS = [
     '%-d %b %Y'     # [D]D MMM YYYY
 ]
 DATETIME_FORMAT = '%Y%m%d-%H%M%S'
+TIMESTAMP_FORMAT = '%Y-%m-%dT%H%M%S'
 RELATIONSHIP_TYPE = 'relationship_type'
 MULTIPLIER = 'Mul'
 DEFAULT_MULTIPLIER = 'many_to_one'
