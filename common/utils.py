@@ -42,7 +42,6 @@ def get_logger(name):
     :param name: logger name
     :return:
     '''
-    print(f'get_logger: {name}')
     FILE_HANDLER = "file-handler"
     STREAM_HANDLER = "stream-handler"
     log = logging.getLogger(name)
@@ -77,7 +76,6 @@ def add_handler(logger, handler):
     '''
     for han in logger.handlers:
         if han.name == handler.name:
-            print(f"Skip handler with name: {handler.name}, same handler already added")
             return
 
     logger.addHandler(handler)
