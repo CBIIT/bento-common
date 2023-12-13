@@ -48,28 +48,30 @@ def get_logger(name):
     for handler in log.handlers:
         print(handler)
         print(handler.name)
-    if not log.hasHandlers():
-        print("no handlers")
-        log_level = os.environ.get(LOG_ENV_VAR, DEFAULT_LOG_LEVEL)
-        log.setLevel(log_level)
+    # if not log.hasHandlers():
+    print("adding handlers")
+    log_level = os.environ.get(LOG_ENV_VAR, DEFAULT_LOG_LEVEL)
+    log.setLevel(log_level)
 
-        std_handler = logging.StreamHandler()
-        std_handler.setLevel('INFO')
-        app_name = os.environ.get(APP_NAME, '-')
-        formatter = logging.Formatter(f'<14>1 %(asctime)s.%(msecs)03dZ - {app_name} %(process)d - - %(levelname)s: (%(name)s) %(message)s',
-                                      "%Y-%m-%dT%H:%M:%S")
-        formatter.converter = time.gmtime
-        std_handler.setFormatter(formatter)
-        log.addHandler(std_handler)
+    std_handler = logging.StreamHandler()
+    std_handler.name = "stream-handler"
+    std_handler.setLevel('INFO')
+    app_name = os.environ.get(APP_NAME, '-')
+    formatter = logging.Formatter(f'<14>1 %(asctime)s.%(msecs)03dZ - {app_name} %(process)d - - %(levelname)s: (%(name)s) %(message)s',
+                                  "%Y-%m-%dT%H:%M:%S")
+    formatter.converter = time.gmtime
+    std_handler.setFormatter(formatter)
+    log.addHandler(std_handler)
 
-        no_log_file = os.environ.get(NO_LOG)
-        print("before adding file handler")
-        if not no_log_file:
-            log_file = get_log_file()
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(formatter)
-            log.addHandler(file_handler)
-            print("file handler added")
+    no_log_file = os.environ.get(NO_LOG)
+    print("before adding file handler")
+    if not no_log_file:
+        log_file = get_log_file()
+        file_handler = logging.FileHandler(log_file)
+        file_handler.name = "file-handler"
+        file_handler.setFormatter(formatter)
+        log.addHandler(file_handler)
+        print("file handler added")
     return log
 
 def get_log_file():
