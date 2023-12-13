@@ -42,15 +42,10 @@ def get_logger(name):
     :param name: logger name
     :return:
     '''
+    print(f'get_logger: {name}')
     FILE_HANDLER = "file-handler"
     STREAM_HANDLER = "stream-handler"
-    print("enter get_logger")
     log = logging.getLogger(name)
-    print(log.handlers)
-    for handler in log.handlers:
-        print(handler.name)
-    # if not log.hasHandlers():
-    print("adding handlers")
     log_level = os.environ.get(LOG_ENV_VAR, DEFAULT_LOG_LEVEL)
     log.setLevel(log_level)
 
@@ -65,14 +60,12 @@ def get_logger(name):
     add_handler(log, std_handler)
 
     no_log_file = os.environ.get(NO_LOG)
-    print("before adding file handler")
     if not no_log_file:
         log_file = get_log_file()
         file_handler = logging.FileHandler(log_file)
         file_handler.name = FILE_HANDLER
         file_handler.setFormatter(formatter)
         add_handler(log, file_handler)
-        print("file handler added")
     return log
 
 def add_handler(logger, handler):
@@ -108,7 +101,6 @@ def get_log_file():
 
         log_file_prefix = os.environ.get(LOG_PREFIX, 'bento')
         log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
-        print(f'log_file = {log_file}')
         return log_file
     else:
         return None
