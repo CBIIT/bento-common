@@ -45,6 +45,9 @@ def get_logger(name):
     print("enter get_logger")
     log = logging.getLogger(name)
     print(log.handlers)
+    for handler in log.handlers:
+        print(handler)
+        print(handler.name)
     if not log.hasHandlers():
         print("no handlers")
         log_level = os.environ.get(LOG_ENV_VAR, DEFAULT_LOG_LEVEL)
