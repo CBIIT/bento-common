@@ -57,11 +57,13 @@ def get_logger(name):
         log.addHandler(std_handler)
 
         no_log_file = os.environ.get(NO_LOG)
+        print("before adding file handler")
         if not no_log_file:
             log_file = get_log_file()
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
             log.addHandler(file_handler)
+            print("file handler added")
     return log
 
 def get_log_file():
@@ -83,6 +85,7 @@ def get_log_file():
 
         log_file_prefix = os.environ.get(LOG_PREFIX, 'bento')
         log_file = os.path.join(log_folder, f'{log_file_prefix}-{get_time_stamp()}.log')
+        print(f'log_file = {log_file}')
         return log_file
     else:
         return None
