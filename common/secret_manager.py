@@ -1,4 +1,5 @@
 import boto3
+import json
 from botocore.exceptions import ClientError
 
 
@@ -11,10 +12,10 @@ def get_secret(secret_name, region_name="us-east-1"):
     )
 
     try:
-        get_secret_value_response = client.get_secret_value(
+        response = client.get_secret_value(
             SecretId=secret_name
         )
-        return get_secret_value_response
+        return json.loads(response['SecretString'])
     except ClientError as e:
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
