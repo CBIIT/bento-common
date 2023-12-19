@@ -4,6 +4,12 @@ from botocore.exceptions import ClientError
 
 
 def get_secret(secret_name, region_name="us-east-1"):
+    '''
+    Returns a dict that contains all secret values in a given secret
+    :param secret_name:
+    :param region_name:
+    :return: dict that contains all secret values
+    '''
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(
