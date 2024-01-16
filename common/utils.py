@@ -42,27 +42,43 @@ def get_logger(name):
     :param name: logger name
     :return:
     '''
+    FILE_HANDLER = "file-handler"
+    STREAM_HANDLER = "stream-handler"
     log = logging.getLogger(name)
-    if not log.handlers:
-        log_level = os.environ.get(LOG_ENV_VAR, DEFAULT_LOG_LEVEL)
-        log.setLevel(log_level)
+    log_level = os.environ.get(LOG_ENV_VAR, DEFAULT_LOG_LEVEL)
+    log.setLevel(log_level)
 
-        std_handler = logging.StreamHandler()
-        std_handler.setLevel('INFO')
-        app_name = os.environ.get(APP_NAME, '-')
-        formatter = logging.Formatter(f'<14>1 %(asctime)s.%(msecs)03dZ - {app_name} %(process)d - - %(levelname)s: (%(name)s) %(message)s',
-                                      "%Y-%m-%dT%H:%M:%S")
-        formatter.converter = time.gmtime
-        std_handler.setFormatter(formatter)
-        log.addHandler(std_handler)
+    std_handler = logging.StreamHandler()
+    std_handler.name = STREAM_HANDLER
+    std_handler.setLevel('INFO')
+    app_name = os.environ.get(APP_NAME, '-')
+    formatter = logging.Formatter(f'<14>1 %(asctime)s.%(msecs)03dZ - {app_name} %(process)d - - %(levelname)s: (%(name)s) %(message)s',
+                                  "%Y-%m-%dT%H:%M:%S")
+    formatter.converter = time.gmtime
+    std_handler.setFormatter(formatter)
+    add_handler(log, std_handler)
 
-        no_log_file = os.environ.get(NO_LOG)
-        if not no_log_file:
-            log_file = get_log_file()
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(formatter)
-            log.addHandler(file_handler)
+    no_log_file = os.environ.get(NO_LOG)
+    if not no_log_file:
+        log_file = get_log_file()
+        file_handler = logging.FileHandler(log_file)
+        file_handler.name = FILE_HANDLER
+        file_handler.setFormatter(formatter)
+        add_handler(log, file_handler)
     return log
+
+def add_handler(logger, handler):
+    '''
+    Add handler to logger, but will not add again if the logger has a handler with the same name
+    :param logger:
+    :param handler:
+    :return:
+    '''
+    for han in logger.handlers:
+        if han.name == handler.name:
+            return
+
+    logger.addHandler(handler)
 
 def get_log_file():
     '''
