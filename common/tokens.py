@@ -1,16 +1,14 @@
 import requests
 
 def get_okta_token(secrets, url=''):
-    
-    
+
     body = {"client_id": secrets["OKTA_CLIENT_ID"],
 			"username": secrets["CURRENT_OKTA_USERNAME"],
 			"password": secrets["CURRENT_OKTA_PASSWORD"],
 			"client_secret": secrets["OKTA_CLIENT_SECRET"],
-			"grant_type": "password",
-			"scope": "openid profile"}
+			"grant_type": secrets["OKTA_GRANT_TYPE"],
+			"scope": secrets["OKTA_SCOPE"]}
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-    
 
     r = requests.post(url, data=(body), headers=headers)
     if r.status_code != 200:
