@@ -183,6 +183,29 @@ def get_stream_md5(stream):
     hash = get_stream_hash(stream, hash_obj)
     return hash.hexdigest()
 
+def get_s3_stream_md5(s3, bucket: str, key: str, chunk_size: int = 64 * 1024 * 1024):
+    
+
+    # Get total file size
+    head = s3.head_object(Bucket=bucket, Key=key)
+    total_size = head["ContentLength"]
+
+    md5_hash = hashlib.md5()
+    offset = 0
+
+    while offset < total_size:
+        end = min(offset + chunk_size - 1, total_size - 1)
+        range_header = f"bytes={offset}-{end}"
+
+        # Each range request is independent - retryable
+        response = s3.get_object(Bucket=bucket, Key=key, Range=range_header)
+        chunk = response["Body"].read()
+        md5_hash.update(chunk)
+
+        offset += len(chunk)
+        #print(f"Progress: {offset / total_size * 100:.1f}%")
+
+    return md5_hash.hexdigest()
 
 def get_string_md5(text):
     stream = BytesIO(bytes(text, 'utf-8'))
